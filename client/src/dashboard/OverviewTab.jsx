@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Zap, Clock, ArrowRight,
   CheckCircle2, History, Package, Palette, Code2,
-  CreditCard, TrendingUp
+  CreditCard, TrendingUp, Users
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
