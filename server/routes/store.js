@@ -1,0 +1,352 @@
+import { Router } from 'express'
+import { getDb } from '../database.js'
+import {
+  authStore,
+  getStoreById,
+  signStoreToken,
+  publicStore,
+  comparePassword,
+  hashPassword,
+  validatePassword,
+} from '../lib/auth.js'
+
+const router = Router()
+
+function slugifyName(name) {
+  const base = String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+  return base || 'store'
+}
+
+function randomSuffix() {
+  return Math.random().toString(16).slice(2, 8)
+}
+
+async function uniqueStoreId(name) {
+  const db = getDb()
+  for (let i = 0; i < 8; i++) {
+    const id = `${slugifyName(name)}-${randomSuffix()}`
+    const existing = await db.execute({
+      sql: 'SELECT id FROM stores WHERE id = ? LIMIT 1',
+      args: [id],
+    })
+    if (!existing.rows.length) return id
+  }
+  return `${slugifyName(name)}-${Date.now().toString(16).slice(-6)}`
+}
+
+// PUT /api/store-setup { name }
+router.put('/store-setup', authStore, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim()
+    if (name.length < 2) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: 'Store name must be at least 2 characters',
+        })
+    }
+    if (name.length > 80) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Store name is too long' })
+    }
+
+    const store = await getStoreById(req.user.storeId)
+    if (!store) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
+
+    const db = getDb()
+    let nextId = store.id
+    const isTemp = String(store.id).startsWith('temp-')
+
+    if (isTemp) {
+      nextId = await uniqueStoreId(name)
+      // SQLite/libSQL: update PK by inserting new row then deleting old is safer with FKs,
+      // but products/etc are empty at setup — rewrite id in place.
+      await db.execute({
+        sql: `UPDATE stores
+              SET id = ?, name = ?, updated_at = datetime('now')
+              WHERE id = ?`,
+        args: [nextId, name, store.id],
+      })
+    } else {
+      await db.execute({
+        sql: `UPDATE stores SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+        args: [name, store.id],
+      })
+    }
+
+    const updated = await getStoreById(nextId)
+    const token = signStoreToken(updated)
+    res.json({
+      success: true,
+      message: isTemp ? 'Store created' : 'Store name updated',
+      token,
+      store: publicStore(updated),
+    })
+  } catch (err) {
+    console.error('[store-setup]', err)
+    res
+      .status(500)
+      .json({ success: false, error: 'Could not finish store setup' })
+  }
+})
+
+function parsePresets(raw) {
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed)) return [50000, 80000, 120000, 200000]
+    return parsed.map(Number).filter((n) => Number.isFinite(n) && n > 0)
+  } catch {
+    return [50000, 80000, 120000, 200000]
+  }
+}
+
+// GET /api/store-config/:storeId (public — for widget)
+router.get('/store-config/:storeId', async (req, res) => {
+  try {
+    const store = await getStoreById(req.params.storeId)
+    if (!store) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
+
+    const active = !!store.active && !store.disabled
+    res.json({
+      success: true,
+      active,
+      widgetEnabled: !!store.widget_enabled,
+      brandColor: store.brand_color || '#2A5EE8',
+      currency: store.currency || 'PKR',
+      widgetTitle: store.widget_title || 'BuildBot',
+      welcomeMsg: store.welcome_msg || '',
+      buttonText: store.button_text || 'Get Started',
+      widgetBg: store.widget_bg || '#0A1A2D',
+      budgetPresets: parsePresets(store.budget_presets),
+    })
+  } catch (err) {
+    console.error('[store-config]', err)
+    res
+      .status(500)
+      .json({ success: false, error: 'Could not load store config' })
+  }
+})
+
+// PUT /api/widget-settings
+router.put('/widget-settings', authStore, async (req, res) => {
+  try {
+    const store = await getStoreById(req.user.storeId)
+    if (!store) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
+
+    const brandColor = String(
+      req.body.brandColor ?? store.brand_color ?? '#2A5EE8',
+    ).trim()
+    const widgetBg = String(
+      req.body.widgetBg ?? store.widget_bg ?? '#0A1A2D',
+    ).trim()
+    const currency = String(req.body.currency ?? store.currency ?? 'PKR')
+      .trim()
+      .slice(0, 8)
+    const widgetTitle = String(
+      req.body.widgetTitle ?? store.widget_title ?? 'BuildBot',
+    )
+      .trim()
+      .slice(0, 60)
+    const welcomeMsg = String(req.body.welcomeMsg ?? store.welcome_msg ?? '')
+      .trim()
+      .slice(0, 500)
+    const buttonText = String(
+      req.body.buttonText ?? store.button_text ?? 'Get Started',
+    )
+      .trim()
+      .slice(0, 40)
+    const widgetEnabled =
+      req.body.widgetEnabled === undefined
+        ? store.widget_enabled
+        : req.body.widgetEnabled
+          ? 1
+          : 0
+
+    let presets = store.budget_presets
+    if (req.body.budgetPresets !== undefined) {
+      const list = parsePresets(req.body.budgetPresets)
+      if (!list.length) {
+        return res
+          .status(400)
+          .json({ success: false, error: 'Budget presets invalid' })
+      }
+      presets = JSON.stringify(list)
+    }
+
+    if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(brandColor)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'brandColor must be a hex color' })
+    }
+    if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(widgetBg)) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'widgetBg must be a hex color' })
+    }
+
+    await getDb().execute({
+      sql: `UPDATE stores SET
+              brand_color = ?,
+              widget_bg = ?,
+              currency = ?,
+              widget_title = ?,
+              welcome_msg = ?,
+              button_text = ?,
+              widget_enabled = ?,
+              budget_presets = ?,
+              updated_at = datetime('now')
+            WHERE id = ?`,
+      args: [
+        brandColor,
+        widgetBg,
+        currency,
+        widgetTitle,
+        welcomeMsg,
+        buttonText,
+        widgetEnabled,
+        typeof presets === 'string' ? presets : JSON.stringify(presets),
+        store.id,
+      ],
+    })
+
+    const updated = await getStoreById(store.id)
+    res.json({ success: true, store: publicStore(updated) })
+  } catch (err) {
+    console.error('[widget-settings]', err)
+    res
+      .status(500)
+      .json({ success: false, error: 'Could not save widget settings' })
+  }
+})
+
+// PUT /api/change-password { currentPassword, newPassword }
+router.put('/change-password', authStore, async (req, res) => {
+  try {
+    const currentPassword = String(req.body.currentPassword || '')
+    const newPassword = String(req.body.newPassword || '')
+
+    const store = await getStoreById(req.user.storeId)
+    if (!store) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
+
+    const ok = await comparePassword(currentPassword, store.password_hash)
+    if (!ok) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Current password is wrong' })
+    }
+
+    const pwErr = validatePassword(newPassword)
+    if (pwErr) return res.status(400).json({ success: false, error: pwErr })
+
+    const password_hash = await hashPassword(newPassword)
+    await getDb().execute({
+      sql: `UPDATE stores SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
+      args: [password_hash, store.id],
+    })
+
+    res.json({ success: true, message: 'Password updated' })
+  } catch (err) {
+    console.error('[change-password]', err)
+    res.status(500).json({ success: false, error: 'Could not update password' })
+  }
+})
+
+// PUT /api/email-preferences { marketingOptIn }
+router.put('/email-preferences', authStore, async (req, res) => {
+  try {
+    const marketingOptIn = req.body.marketingOptIn ? 1 : 0
+
+    await getDb().execute({
+      sql: `UPDATE stores SET marketing_opt_in = ?, updated_at = datetime('now') WHERE id = ?`,
+      args: [marketingOptIn, req.user.storeId],
+    })
+
+    const updated = await getStoreById(req.user.storeId)
+    res.json({ success: true, store: publicStore(updated) })
+  } catch (err) {
+    console.error('[email-preferences]', err)
+    res
+      .status(500)
+      .json({ success: false, error: 'Could not update email preferences' })
+  }
+})
+
+// PUT /api/settings { name }
+router.put('/settings', authStore, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim()
+    if (name.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Store name must be at least 2 characters',
+      })
+    }
+    if (name.length > 80) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Store name is too long' })
+    }
+
+    const store = await getStoreById(req.user.storeId)
+    if (!store) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
+
+    await getDb().execute({
+      sql: `UPDATE stores SET name = ?, updated_at = datetime('now') WHERE id = ?`,
+      args: [name, store.id],
+    })
+
+    const updated = await getStoreById(store.id)
+    res.json({ success: true, store: publicStore(updated) })
+  } catch (err) {
+    console.error('[settings]', err)
+    res.status(500).json({ success: false, error: 'Could not save settings' })
+  }
+})
+
+// DELETE /api/account { password }
+router.delete('/account', authStore, async (req, res) => {
+  try {
+    const password = String(req.body.password || '')
+
+    const store = await getStoreById(req.user.storeId)
+    if (!store) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
+
+    const ok = await comparePassword(password, store.password_hash)
+    if (!ok) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Password is wrong' })
+    }
+
+    await getDb().execute({
+      sql: `DELETE FROM stores WHERE id = ?`,
+      args: [store.id],
+    })
+
+    res.json({ success: true, message: 'Account deleted' })
+  } catch (err) {
+    console.error('[delete-account]', err)
+    res.status(500).json({ success: false, error: 'Could not delete account' })
+  }
+})
+
+export default router

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildBot Widget Test</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #f8fafc;
+        color: #0a1a2d;
+        min-height: 100vh;
+        padding: 2rem;
+      }
+      .box {
+        max-width: 640px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.5rem;
+      }
+      code {
+        background: #f1f5f9;
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>BuildBot widget test page</h1>
+      <p>
+        Open with <code>?storeId=YOUR_STORE_ID</code>. Look for the ⚡ button in the bottom-right.
+      </p>
+      <p id="status">Waiting for store id…</p>
+    </div>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search)
+        var storeId = params.get('storeId')
+        var status = document.getElementById('status')
+        if (!storeId) {
+          status.textContent = 'Add ?storeId=… to the URL (use your dashboard Store ID).'
+          return
+        }
+        status.textContent = 'Loading widget for store: ' + storeId
+        var s = document.createElement('script')
+        s.src = '/widget.js'
+        s.setAttribute('data-store-id', storeId)
+        document.body.appendChild(s)
+      })()
+    </script>
+  </body>
+</html>

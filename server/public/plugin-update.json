@@ -1,0 +1,13 @@
+{
+  "name": "BuildBot for WooCommerce",
+  "slug": "buildbot-woocommerce",
+  "version": "1.0.0",
+  "download_url": "http://127.0.0.1:3001/buildbot-woocommerce.zip",
+  "requires": "5.8",
+  "tested": "6.5",
+  "last_updated": "2026-08-11",
+  "sections": {
+    "description": "Sync WooCommerce products to BuildBot and inject the builder widget."
+  },
+  "api_base_hint": "Set BUILDBOT_API_BASE in buildbot-woocommerce.php"
+}

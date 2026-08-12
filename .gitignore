@@ -1,0 +1,29 @@
+# Root-level .gitignore
+# Covers both client/ and server/ in one place
+
+# Secret files — MUST NEVER go to GitHub
+.env
+**/.env
+**/.env.local
+**/.env.production
+
+# Local database — stays on YOUR computer only
+*.db
+*.db-shm
+*.db-wal
+server/*.db*
+
+# Auto-installed packages — too big, always re-installed
+node_modules/
+**/node_modules/
+
+# React production build — Vercel builds this itself
+client/dist/
+
+# Windows & Mac OS system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor folders (optional — remove if you want to keep these)
+.cursor/

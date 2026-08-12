@@ -1,0 +1,655 @@
+/* ============ Admin dashboard (scoped — does not affect store or other pages) ============ */
+
+/* —— Shell —— */
+.ad-shell {
+    display: flex;
+    min-height: 100vh;
+    background: var(--gray-light);
+}
+
+/* —— Sidebar —— */
+.ad-sidebar {
+    width: 264px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, #0a1a2d 0%, #0d2036 100%);
+    color: #fff;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 40;
+}
+
+.ad-sidebar-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 1.35rem 1.25rem 1rem;
+}
+
+.ad-sidebar-brand .lp-logo-word {
+    color: #fff;
+}
+
+.ad-sidebar-close {
+    display: none;
+    border: 0;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* Admin info card below logo */
+.ad-sidebar-admin {
+    margin: 0.25rem 1.1rem 1rem;
+    padding: 0.8rem 0.9rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.ad-sidebar-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a5ee8, #1f4fd1);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 0.78rem;
+    flex: none;
+}
+
+.ad-sidebar-admin-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+}
+
+.ad-sidebar-admin-label {
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.ad-sidebar-admin-email {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.ad-admin-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(42, 94, 232, 0.22);
+    color: #93b4f8;
+    margin-top: 0.2rem;
+    width: fit-content;
+}
+
+/* —— Navigation —— */
+.ad-nav {
+    flex: 1;
+    padding: 0.25rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-top: 0.35rem;
+}
+
+.ad-nav-group-label {
+    margin: 0.9rem 0.6rem 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.ad-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 0.62rem 0.75rem;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.66);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.87rem;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.ad-nav-item svg {
+    flex: none;
+}
+
+.ad-nav-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+}
+
+/* Active uses the exact same blue gradient as store dashboard */
+.ad-nav-item.active {
+    background: linear-gradient(135deg, #2a5ee8, #1f4fd1);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(42, 94, 232, 0.35);
+}
+
+/* —— Sidebar footer —— */
+.ad-sidebar-footer {
+    padding: 0.9rem 1rem 1.15rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ad-logout-btn {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.ad-logout-btn:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #fff !important;
+}
+
+/* —— Sidebar mobile backdrop —— */
+.ad-sidebar-backdrop {
+    display: none;
+}
+
+/* —— Main column —— */
+.ad-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* —— Topbar —— */
+.ad-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1.75rem;
+    background: rgba(248, 250, 252, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+}
+
+.ad-topbar-menu-btn {
+    display: none;
+    border: 0;
+    background: var(--white);
+    border: 1px solid var(--border);
+    color: var(--navy);
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: none;
+}
+
+.ad-topbar-title {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1.02rem;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+}
+
+.ad-topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+/* Admin badge — same style as store trial pill but blue */
+.ad-admin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(42, 94, 232, 0.1);
+    color: var(--blue);
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid rgba(42, 94, 232, 0.18);
+}
+
+/* —— User chip (topbar) —— */
+.ad-user-menu {
+    position: relative;
+}
+
+.ad-user-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.7rem 0.3rem 0.3rem;
+    border-radius: 999px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font: inherit;
+    color: var(--navy);
+}
+
+.ad-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a5ee8, #1f4fd1);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 0.76rem;
+    flex: none;
+}
+
+.ad-user-chip-name {
+    font-size: 0.84rem;
+    font-weight: 700;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ad-user-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    width: 200px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(10, 26, 45, 0.16);
+    padding: 0.4rem;
+    z-index: 50;
+}
+
+.ad-user-dropdown button {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--navy);
+    cursor: pointer;
+    text-align: left;
+}
+
+.ad-user-dropdown button:hover {
+    background: var(--gray-light);
+}
+
+.ad-user-dropdown button.danger {
+    color: #b91c1c;
+}
+
+/* —— Content area —— */
+.ad-content {
+    flex: 1;
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 1.75rem;
+}
+
+/* —— Page header —— */
+.ad-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.ad-page-title {
+    margin: 0 0 0.3rem;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--navy);
+}
+
+.ad-page-desc {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+    max-width: 60ch;
+}
+
+/* —— Responsive: sidebar becomes a drawer on narrow screens —— */
+@media (max-width: 1100px) {
+    .ad-sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 280px;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 110;
+    }
+
+    .ad-sidebar.is-open {
+        transform: translateX(0);
+    }
+
+    .ad-sidebar-close {
+        display: inline-flex;
+    }
+
+    .ad-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 26, 45, 0.45);
+        z-index: 100;
+    }
+
+    .ad-sidebar-backdrop.is-open {
+        display: block;
+    }
+
+    .ad-topbar-menu-btn {
+        display: inline-flex;
+    }
+
+    .ad-content {
+        padding: 1.25rem;
+    }
+
+    .ad-user-chip-name {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .ad-topbar {
+        padding: 0.75rem 1.1rem;
+    }
+
+    .ad-page-title {
+        font-size: 1.3rem;
+    }
+
+    .ad-admin-badge {
+        display: none;
+    }
+}
+
+/* =========================================================
+   Toast / auto-dismiss notification
+   ========================================================= */
+.ad-toast-area {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+.ad-toast {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    font-size: 0.87rem;
+    font-weight: 600;
+    min-width: 240px;
+    max-width: 360px;
+    box-shadow: 0 8px 24px rgba(10, 26, 45, 0.18);
+    animation: ad-toast-in 0.22s ease;
+    pointer-events: all;
+}
+.ad-toast.success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+.ad-toast.error   { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+.ad-toast.info    { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
+@keyframes ad-toast-in {
+    from { opacity:0; transform:translateY(8px); }
+    to   { opacity:1; transform:translateY(0); }
+}
+
+/* =========================================================
+   Pill filter tabs (Payments, Tickets)
+   ========================================================= */
+.ad-pill-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+.ad-pill-filter button {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.48rem 0.85rem;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+}
+.ad-pill-filter button:hover { background: var(--gray-light); color: var(--navy); }
+.ad-pill-filter button.active { background: var(--navy); color: #fff; }
+.ad-pill-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    background: rgba(255,255,255,0.18);
+}
+.ad-pill-filter button:not(.active) .ad-pill-count {
+    background: var(--border);
+    color: var(--navy);
+}
+
+/* =========================================================
+   AI model selector cards
+   ========================================================= */
+.ad-model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.ad-model-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.85rem 1rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--white);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+    text-align: left;
+    font: inherit;
+    width: 100%;
+}
+.ad-model-card:hover { border-color: var(--blue); }
+.ad-model-card.selected {
+    border-color: var(--blue);
+    background: rgba(42, 94, 232, 0.04);
+    box-shadow: 0 0 0 3px rgba(42, 94, 232, 0.12);
+}
+.ad-model-card-name { font-size: 0.9rem; font-weight: 700; color: var(--navy); }
+.ad-model-card-id   { font-size: 0.72rem; font-family: monospace; color: var(--muted); }
+.ad-model-card-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem; }
+.ad-model-card-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: var(--gray-light);
+    color: var(--muted);
+}
+.ad-model-card-tag.fast        { background:#fef9c3; color:#a16207; }
+.ad-model-card-tag.balanced    { background:#eff6ff; color:#1d4ed8; }
+.ad-model-card-tag.smart       { background:#f5f3ff; color:#6d28d9; }
+.ad-model-card-tag.cheap       { background:#f0fdf4; color:#15803d; }
+.ad-model-card-tag.expensive   { background:#fef2f2; color:#b91c1c; }
+.ad-model-card-tag.recommended { background:#eff6ff; color:#1d4ed8; }
+.ad-model-check {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.75rem;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 0.65rem;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.ad-model-card.selected .ad-model-check { opacity: 1; }
+
+/* =========================================================
+   Inline info / notice banners
+   ========================================================= */
+.ad-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+.ad-notice.info    { background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; }
+.ad-notice.warning { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+.ad-notice.danger  { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+
+/* Maintenance on warning */
+.ad-maintenance-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    background: #fff7ed;
+    border: 2px solid #fed7aa;
+    color: #9a3412;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+}
+
+/* =========================================================
+   Comms "To" selector
+   ========================================================= */
+.ad-to-select { display: flex; flex-direction: column; gap: 0.4rem; }
+.ad-to-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.65rem 0.85rem;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    background: var(--white);
+    text-align: left;
+    font: inherit;
+    width: 100%;
+}
+.ad-to-option:hover  { border-color: var(--blue); background: rgba(42,94,232,0.02); }
+.ad-to-option.selected { border-color: var(--blue); background: rgba(42,94,232,0.05); }
+.ad-to-option input[type="radio"] { accent-color: var(--blue); width:16px; height:16px; flex:none; margin-top:2px; }
+.ad-to-option-label { font-weight: 700; font-size: 0.88rem; color: var(--navy); }
+.ad-to-option-desc  { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
+
+/* =========================================================
+   Misc helpers
+   ========================================================= */
+.ad-rel-time { font-size: 0.74rem; color: var(--muted); margin-left: 0.35rem; }
+.ad-section-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--blue);
+    margin-bottom: 0.5rem;
+}
+.ad-ticket-expire-note { font-size: 0.72rem; color: var(--muted); font-style: italic; margin-top: 0.15rem; }
+.ad-muted-row td { opacity: 0.6; }

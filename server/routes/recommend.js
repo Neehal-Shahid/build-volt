@@ -1,0 +1,523 @@
+import { Router } from 'express'
+import { getDb, getPlatformConfig } from '../database.js'
+import { getStoreById } from '../lib/auth.js'
+
+const router = Router()
+
+const PURPOSES = [
+  'Office',
+  'Studies',
+  'Coding',
+  'Designing',
+  'Video Editing',
+  'Gaming',
+  'Streaming',
+  'Mixed Use',
+]
+
+const ipHits = new Map()
+
+function clientIp(req) {
+  const xf = req.headers['x-forwarded-for']
+  if (typeof xf === 'string' && xf.length) return xf.split(',')[0].trim()
+  return req.socket?.remoteAddress || 'unknown'
+}
+
+function rateLimitIp(ip) {
+  const now = Date.now()
+  const windowMs = 60 * 60 * 1000
+  const max = 15
+  let entry = ipHits.get(ip)
+  if (!entry || now - entry.start > windowMs) {
+    entry = { start: now, count: 0 }
+    ipHits.set(ip, entry)
+  }
+  entry.count += 1
+  return entry.count <= max
+}
+
+function cacheKey(storeId, budget, purpose, extras) {
+  return `${storeId}|${budget}|${purpose}|${String(extras || '').trim().toLowerCase()}`
+}
+
+async function countUsage(storeId, period) {
+  const db = getDb()
+  const sql =
+    period === 'day'
+      ? `SELECT COUNT(*) AS c FROM recommendations
+         WHERE store_id = ? AND source != 'cached'
+           AND created_at >= datetime('now', '-1 day')`
+      : `SELECT COUNT(*) AS c FROM recommendations
+         WHERE store_id = ? AND source != 'cached'
+           AND created_at >= datetime('now', '-30 days')`
+  const result = await db.execute({ sql, args: [storeId] })
+  return Number(result.rows[0]?.c || 0)
+}
+
+function planLimit(store, config) {
+  const plan = String(store.plan || 'trial').toLowerCase()
+  if (plan === 'trial') {
+    return {
+      limit: Number(config.trial_daily_limit || 3),
+      period: 'day',
+    }
+  }
+  if (plan === 'starter') {
+    return { limit: Number(config.limit_starter || 500), period: 'month' }
+  }
+  if (plan === 'growth') {
+    return { limit: Number(config.limit_growth || 2000), period: 'month' }
+  }
+  if (plan === 'pro') {
+    return { limit: Number(config.limit_pro || 5000), period: 'month' }
+  }
+  return { limit: Number(config.trial_daily_limit || 3), period: 'day' }
+}
+
+function pickProducts(products, budget, purpose) {
+  const cats = ['CPU', 'Motherboard', 'RAM', 'Storage', 'GPU', 'PSU', 'Case', 'Cooler']
+  const byCat = {}
+  for (const p of products) {
+    if (Number(p.price) > budget) continue
+    const cat = p.category || 'Other'
+    if (!byCat[cat]) byCat[cat] = []
+    byCat[cat].push(p)
+  }
+  for (const cat of Object.keys(byCat)) {
+    byCat[cat].sort((a, b) => Number(a.price) - Number(b.price))
+  }
+
+  const gaming = /gaming|streaming|video|design/i.test(purpose)
+
+  function buildTier(mode) {
+    const parts = []
+    let total = 0
+    const missing = []
+    for (const cat of cats) {
+      const list = byCat[cat] || []
+      if (!list.length) {
+        if (cat === 'GPU' && !gaming && mode === 'budget') continue
+        missing.push(cat)
+        continue
+      }
+      let pick
+      if (mode === 'budget') pick = list[0]
+      else if (mode === 'max') pick = list[list.length - 1]
+      else pick = list[Math.floor((list.length - 1) / 2)] || list[0]
+
+      if (total + Number(pick.price) > budget && mode !== 'max') {
+        // try cheaper
+        const cheaper = list.find((x) => total + Number(x.price) <= budget)
+        if (!cheaper) {
+          missing.push(cat)
+          continue
+        }
+        pick = cheaper
+      }
+      const price = Number(pick.price)
+      parts.push({
+        category: cat,
+        name: pick.name,
+        price,
+        quantity: 1,
+        totalPrice: price,
+        reason: `${mode} pick for ${purpose}`,
+      })
+      total += price
+    }
+    return { parts, total, missing }
+  }
+
+  const budgetBuild = buildTier('budget')
+  const balanced = buildTier('balanced')
+  const max = buildTier('max')
+
+  function pack(tier, tagline, data) {
+    const within = data.total <= budget
+    return {
+      tier,
+      tagline,
+      buildName: `${purpose} ${tier}`,
+      totalPrice: data.total,
+      withinBudget: within,
+      budgetRemaining: Math.max(0, budget - data.total),
+      compatible: true,
+      compatibilityNote: '',
+      parts: data.parts,
+      missingCategories: data.missing,
+      summary: `A ${tier.toLowerCase()} oriented build for ${purpose}.`,
+      tips: 'Prices are from this store’s catalog. Confirm stock before ordering.',
+      budgetAdvice: within
+        ? `About ${Math.round(data.total).toLocaleString()} ${'PKR'} used of your budget.`
+        : 'This build may exceed budget — trim GPU or storage if needed.',
+    }
+  }
+
+  return [
+    pack('Budget Build', 'Best value under budget', budgetBuild),
+    pack('Balanced Build', 'Sweet spot performance', balanced),
+    pack('Max Build', 'Push the budget', max),
+  ]
+}
+
+function fakeBuilds(budget, purpose, currency) {
+  const slice = Math.max(5000, Math.floor(budget / 6))
+  const mk = (tier, tagline, mult) => {
+    const total = Math.min(budget, Math.round(slice * mult * 5))
+    return {
+      tier,
+      tagline,
+      buildName: `${purpose} ${tier}`,
+      totalPrice: total,
+      withinBudget: total <= budget,
+      budgetRemaining: Math.max(0, budget - total),
+      compatible: true,
+      compatibilityNote: '',
+      parts: [
+        { category: 'CPU', name: `[TEST] ${tier} CPU`, price: slice, quantity: 1, totalPrice: slice, reason: 'TEST_MODE' },
+        { category: 'GPU', name: `[TEST] ${tier} GPU`, price: slice * 2, quantity: 1, totalPrice: slice * 2, reason: 'TEST_MODE' },
+        { category: 'RAM', name: `[TEST] 16GB RAM`, price: Math.round(slice * 0.6), quantity: 1, totalPrice: Math.round(slice * 0.6), reason: 'TEST_MODE' },
+        { category: 'Storage', name: `[TEST] 1TB SSD`, price: Math.round(slice * 0.7), quantity: 1, totalPrice: Math.round(slice * 0.7), reason: 'TEST_MODE' },
+        { category: 'Motherboard', name: `[TEST] Board`, price: Math.round(slice * 0.8), quantity: 1, totalPrice: Math.round(slice * 0.8), reason: 'TEST_MODE' },
+      ],
+      missingCategories: [],
+      summary: `TEST_MODE fake ${tier} for ${purpose}.`,
+      tips: 'These are placeholder parts — add real catalog products for live AI picks.',
+      budgetAdvice: `Budget ${Number(budget).toLocaleString()} ${currency}.`,
+    }
+  }
+  return [
+    mk('Budget Build', 'Test budget tier', 0.7),
+    mk('Balanced Build', 'Test balanced tier', 0.9),
+    mk('Max Build', 'Test max tier', 1.05),
+  ]
+}
+
+async function logRecommendation({
+  storeId,
+  budget,
+  purpose,
+  extras,
+  builds,
+  canBuild,
+  noBuildsReason,
+  source,
+  model,
+  ip,
+  inputTokens = 0,
+  outputTokens = 0,
+  estCost = 0,
+}) {
+  await getDb().execute({
+    sql: `INSERT INTO recommendations (
+      store_id, budget, purpose, extras, builds_json, can_build, no_builds_reason,
+      source, model, input_tokens, output_tokens, est_cost_usd, ip
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      storeId,
+      budget,
+      purpose,
+      extras || '',
+      JSON.stringify(builds || []),
+      canBuild ? 1 : 0,
+      noBuildsReason || '',
+      source,
+      model || null,
+      inputTokens,
+      outputTokens,
+      estCost,
+      ip,
+    ],
+  })
+}
+
+router.post('/recommend', async (req, res) => {
+  try {
+    const storeId = String(req.body.storeId || '').trim()
+    const budget = Number(req.body.budget)
+    const purpose = String(req.body.purpose || '').trim()
+    const extras = String(req.body.extras || '').trim()
+    const ip = clientIp(req)
+
+    if (!storeId) {
+      return res.status(400).json({ success: false, error: 'storeId is required' })
+    }
+    if (!Number.isFinite(budget) || budget < 1000) {
+      return res.status(400).json({ success: false, error: 'Enter a valid budget' })
+    }
+    if (!purpose || !PURPOSES.includes(purpose)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Choose a valid purpose',
+        purposes: PURPOSES,
+      })
+    }
+
+    if (!rateLimitIp(ip)) {
+      return res.status(429).json({
+        success: false,
+        error: 'Too many requests from this network. Try again later.',
+      })
+    }
+
+    const store = await getStoreById(storeId)
+    if (!store || !store.active || store.disabled) {
+      return res.status(404).json({ success: false, error: 'Store not available' })
+    }
+    if (!store.widget_enabled) {
+      return res.status(403).json({ success: false, error: 'Widget is disabled for this store' })
+    }
+
+    const config = await getPlatformConfig()
+    if (config.maintenance_mode === '1') {
+      return res.status(503).json({ success: false, error: 'BuildBot is under maintenance' })
+    }
+
+    const { limit, period } = planLimit(store, config)
+    const used = await countUsage(storeId, period)
+    if (used >= limit) {
+      return res.status(429).json({
+        success: false,
+        error: `Recommendation limit reached (${used}/${limit} per ${period}).`,
+        usage: { used, limit, remaining: 0, period },
+      })
+    }
+
+    const currency = store.currency || 'PKR'
+    const productsResult = await getDb().execute({
+      sql: `SELECT name, category, price, stock FROM products WHERE store_id = ? AND stock = 1`,
+      args: [storeId],
+    })
+    const products = productsResult.rows || []
+
+    // Cache: identical request within 24h
+    const key = cacheKey(storeId, budget, purpose, extras)
+    const cached = await getDb().execute({
+      sql: `SELECT builds_json, can_build, no_builds_reason FROM recommendations
+            WHERE store_id = ? AND budget = ? AND purpose = ? AND extras = ?
+              AND source != 'cached'
+              AND created_at >= datetime('now', '-1 day')
+            ORDER BY id DESC LIMIT 1`,
+      args: [storeId, budget, purpose, extras || ''],
+    })
+
+    if (cached.rows.length) {
+      const row = cached.rows[0]
+      let builds = []
+      try {
+        builds = JSON.parse(row.builds_json || '[]')
+      } catch {
+        builds = []
+      }
+      await logRecommendation({
+        storeId,
+        budget,
+        purpose,
+        extras,
+        builds,
+        canBuild: !!row.can_build,
+        noBuildsReason: row.no_builds_reason || '',
+        source: 'cached',
+        model: null,
+        ip,
+      })
+      return res.json({
+        success: true,
+        builds,
+        canBuild: !!row.can_build,
+        noBuildsReason: row.no_builds_reason || '',
+        currency,
+        usage: {
+          used,
+          limit,
+          remaining: Math.max(0, limit - used),
+          period,
+        },
+        cached: true,
+        cacheKey: key,
+      })
+    }
+
+    let builds = []
+    let source = 'ai'
+    let canBuild = true
+    let noBuildsReason = ''
+    let model = null
+
+    const affordable = products.filter((p) => Number(p.price) <= budget)
+
+    if (process.env.TEST_MODE === 'true') {
+      source = 'test'
+      model = 'test-mode'
+      builds = fakeBuilds(budget, purpose, currency)
+      canBuild = true
+    } else if (!products.length) {
+      canBuild = false
+      noBuildsReason = 'This store has no products in stock yet.'
+      builds = []
+      source = 'empty'
+    } else if (!affordable.length) {
+      canBuild = false
+      noBuildsReason = 'No products are within this budget.'
+      builds = []
+      source = 'empty'
+    } else {
+      // Real Anthropic call
+      const apiKey = process.env.ANTHROPIC_API_KEY
+      const modelName = config.anthropic_model || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5'
+      const maxTokens = Number(config.max_tokens || process.env.ANTHROPIC_MAX_TOKENS || 4096)
+
+      if (!apiKey) {
+        // No key yet — use heuristic so the widget still works locally
+        source = 'heuristic'
+        model = 'catalog-heuristic'
+        builds = pickProducts(products, budget, purpose)
+        canBuild = builds.some((b) => b.parts && b.parts.length > 0)
+        if (!canBuild) noBuildsReason = 'Could not assemble builds from the catalog for this budget.'
+      } else {
+        // Build compact catalog string (no descriptions — reduces tokens)
+        const catalogLines = affordable
+          .map((p) => `[${p.category}] ${p.name} | PKR ${Number(p.price).toLocaleString()}`)
+          .join('\n')
+
+        const systemPrompt = [
+          'You are BuildBot, an AI PC build recommender for a Pakistani PC parts store.',
+          'Return ONLY valid JSON — no markdown, no explanation.',
+          'Return an array of exactly 3 build objects: Budget Build, Balanced Build, Max Build.',
+          'Each build object must have these exact fields:',
+          '  tier (string), tagline (string), buildName (string), totalPrice (number),',
+          '  withinBudget (boolean), budgetRemaining (number), compatible (boolean),',
+          '  compatibilityNote (string), parts (array), missingCategories (array),',
+          '  summary (string), tips (string), budgetAdvice (string).',
+          'Each part must have: category, name (exact from catalog), price, quantity, totalPrice, reason.',
+          'Only use products from the catalog provided. Do NOT invent products.',
+          'Prices are in PKR. Budget is in PKR.',
+        ].join('\n')
+
+        const userMsg = [
+          `Budget: PKR ${budget.toLocaleString()}`,
+          `Purpose: ${purpose}`,
+          extras ? `Extras requested: ${extras}` : '',
+          '',
+          'Available products catalog:',
+          catalogLines,
+        ].filter(Boolean).join('\n')
+
+        try {
+          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: modelName,
+              max_tokens: maxTokens,
+              system: systemPrompt,
+              messages: [{ role: 'user', content: userMsg }],
+            }),
+          })
+
+          if (!aiRes.ok) {
+            const errBody = await aiRes.text()
+            throw new Error(`Anthropic ${aiRes.status}: ${errBody.slice(0, 200)}`)
+          }
+
+          const aiJson = await aiRes.json()
+          const rawText = aiJson.content?.[0]?.text || ''
+          const inputTokens  = aiJson.usage?.input_tokens  || 0
+          const outputTokens = aiJson.usage?.output_tokens || 0
+
+          // Rough cost estimate (haiku pricing in USD)
+          const usdPerMIn  = 0.00025 / 1000
+          const usdPerMOut = 0.00125 / 1000
+          const estCostUsd = inputTokens * usdPerMIn + outputTokens * usdPerMOut
+
+          // Parse JSON — strip optional markdown fence
+          const jsonStr = rawText
+            .replace(/^```(?:json)?\n?/m, '')
+            .replace(/\n?```$/m, '')
+            .trim()
+
+          let parsed
+          try {
+            parsed = JSON.parse(jsonStr)
+            if (!Array.isArray(parsed)) throw new Error('Not an array')
+          } catch (parseErr) {
+            console.warn('[recommend] Anthropic parse fail — falling back to heuristic:', parseErr.message)
+            parsed = null
+          }
+
+          if (parsed && parsed.length) {
+            builds = parsed.slice(0, 3)
+            source = 'ai'
+            model  = modelName
+            canBuild = builds.some((b) => b.parts && b.parts.length > 0)
+            if (!canBuild) noBuildsReason = 'AI could not assemble builds from the catalog for this budget.'
+
+            // Log tokens/cost into this recommendation row
+            await logRecommendation({
+              storeId, budget, purpose, extras, builds, canBuild, noBuildsReason,
+              source, model, ip, inputTokens, outputTokens, estCost: estCostUsd,
+            })
+
+            return res.json({
+              success: true, builds, canBuild, noBuildsReason, currency,
+              usage: { used: used + 1, limit, remaining: Math.max(0, limit - used - 1), period },
+              cached: false,
+            })
+          } else {
+            // AI returned empty — fall through to heuristic
+            source = 'heuristic'
+            model = 'catalog-heuristic'
+            builds = pickProducts(products, budget, purpose)
+            canBuild = builds.some((b) => b.parts && b.parts.length > 0)
+            if (!canBuild) noBuildsReason = 'Could not assemble builds from the catalog for this budget.'
+          }
+        } catch (aiErr) {
+          console.error('[recommend] Anthropic error — falling to heuristic:', aiErr.message)
+          source = 'heuristic'
+          model = 'catalog-heuristic'
+          builds = pickProducts(products, budget, purpose)
+          canBuild = builds.some((b) => b.parts && b.parts.length > 0)
+          if (!canBuild) noBuildsReason = 'Could not assemble builds from the catalog for this budget.'
+        }
+      }
+    }
+
+    await logRecommendation({
+      storeId,
+      budget,
+      purpose,
+      extras,
+      builds,
+      canBuild,
+      noBuildsReason,
+      source,
+      model,
+      ip,
+    })
+
+    res.json({
+      success: true,
+      builds,
+      canBuild,
+      noBuildsReason,
+      currency,
+      usage: {
+        used: used + 1,
+        limit,
+        remaining: Math.max(0, limit - used - 1),
+        period,
+      },
+      cached: false,
+    })
+  } catch (err) {
+    console.error('[recommend]', err)
+    res.status(500).json({ success: false, error: 'Recommendation failed. Try again.' })
+  }
+})
+
+export default router
+export { PURPOSES }

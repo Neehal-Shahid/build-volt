@@ -1,0 +1,1850 @@
+/* ============ Store dashboard (scoped, does not affect admin) ============ */
+
+.sd-shell {
+    display: flex;
+    min-height: 100vh;
+    background: var(--gray-light);
+}
+
+/* —— Sidebar —— */
+.sd-sidebar {
+    width: 264px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, #0a1a2d 0%, #0d2036 100%);
+    color: #fff;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 40;
+}
+
+.sd-sidebar-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 1.35rem 1.25rem 1rem;
+}
+
+.sd-sidebar-brand .lp-logo-word {
+    color: #fff;
+}
+
+.sd-sidebar-close {
+    display: none;
+    border: 0;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.sd-sidebar-store {
+    margin: 0.25rem 1.1rem 1rem;
+    padding: 0.8rem 0.9rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+}
+
+.sd-sidebar-store-name {
+    display: block;
+    font-weight: 700;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sd-plan-pill {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.5rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.sd-plan-pill.trial {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+}
+
+.sd-plan-pill.paid {
+    background: rgba(16, 185, 129, 0.18);
+    color: #34d399;
+}
+
+.sd-nav {
+    flex: 1;
+    padding: 0.25rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-top: 0.35rem;
+}
+
+.sd-nav-group-label {
+    margin: 0.9rem 0.6rem 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.sd-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 0.62rem 0.75rem;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.66);
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.87rem;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.sd-nav-item svg {
+    flex: none;
+}
+
+.sd-nav-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+}
+
+.sd-nav-item.active {
+    background: linear-gradient(135deg, #2a5ee8, #1f4fd1);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(42, 94, 232, 0.35);
+}
+
+.sd-sidebar-footer {
+    padding: 0.9rem 1rem 1.15rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sd-upgrade-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 0.85rem 0.9rem;
+    margin-bottom: 0.75rem;
+}
+
+.sd-upgrade-card p {
+    margin: 0 0 0.65rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.sd-upgrade-card .btn {
+    width: 100%;
+    font-size: 0.82rem;
+    padding: 0.55rem 0.8rem;
+}
+
+.sd-logout-btn {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    background: transparent !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.sd-logout-btn:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #fff !important;
+}
+
+/* —— Main column —— */
+.sd-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sd-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1.75rem;
+    background: rgba(248, 250, 252, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+}
+
+.sd-topbar-menu-btn {
+    display: none;
+    border: 0;
+    background: var(--white);
+    border: 1px solid var(--border);
+    color: var(--navy);
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: none;
+}
+
+.sd-topbar-title {
+    margin: 0;
+    font-weight: 800;
+    font-size: 1.02rem;
+    color: var(--navy);
+    letter-spacing: -0.01em;
+}
+
+.sd-topbar-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.sd-topbar-trial {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sd-user-menu {
+    position: relative;
+}
+
+.sd-user-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.7rem 0.3rem 0.3rem;
+    border-radius: 999px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font: inherit;
+    color: var(--navy);
+}
+
+.sd-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a5ee8, #1f4fd1);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 0.76rem;
+    flex: none;
+}
+
+.sd-user-chip-name {
+    font-size: 0.84rem;
+    font-weight: 700;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sd-user-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    width: 200px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(10, 26, 45, 0.16);
+    padding: 0.4rem;
+    z-index: 50;
+}
+
+.sd-user-dropdown button,
+.sd-user-dropdown a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--navy);
+    cursor: pointer;
+    text-align: left;
+}
+
+.sd-user-dropdown button:hover,
+.sd-user-dropdown a:hover {
+    background: var(--gray-light);
+}
+
+.sd-user-dropdown .danger {
+    color: #b91c1c;
+}
+
+.sd-content {
+    flex: 1;
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 1.75rem;
+}
+
+.sd-sidebar-backdrop {
+    display: none;
+}
+
+/* —— Page header —— */
+.sd-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+}
+
+.sd-page-title {
+    margin: 0 0 0.3rem;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--navy);
+}
+
+.sd-page-desc {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+    max-width: 60ch;
+}
+
+.sd-page-actions {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+/* —— Cards —— */
+.sd-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.3rem 1.4rem;
+    box-shadow: 0 1px 2px rgba(10, 26, 45, 0.04);
+    margin-bottom: 1.25rem;
+}
+
+.sd-card-title {
+    margin: 0 0 1rem;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--navy);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sd-card-title svg {
+    color: var(--blue);
+}
+
+/* —— Stat cards —— */
+.sd-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.sd-stat-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.1rem 1.2rem;
+    box-shadow: 0 1px 2px rgba(10, 26, 45, 0.04);
+}
+
+.sd-stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+
+.sd-stat-icon.blue {
+    background: var(--accent-soft);
+    color: var(--blue);
+}
+
+.sd-stat-icon.green {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.sd-stat-icon.amber {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.sd-stat-icon.purple {
+    background: #f5f0ff;
+    color: #7c3aed;
+}
+
+.sd-stat-body {
+    min-width: 0;
+}
+
+.sd-stat-label {
+    display: block;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.3rem;
+}
+
+.sd-stat-value {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1.15;
+}
+
+.sd-stat-value.mono {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.95rem;
+    word-break: break-all;
+}
+
+.sd-stat-sub {
+    margin: 0.3rem 0 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+/* —— Banner (trial / upgrade / mode notices) —— */
+.sd-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1.15rem;
+    border-radius: 14px;
+    background: linear-gradient(
+        135deg,
+        rgba(42, 94, 232, 0.08),
+        rgba(16, 185, 129, 0.06)
+    );
+    border: 1px solid rgba(42, 94, 232, 0.18);
+    margin-bottom: 1.5rem;
+}
+
+.sd-banner-copy {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.sd-banner-copy svg {
+    flex: none;
+    color: var(--blue);
+}
+
+.sd-banner p {
+    margin: 0;
+    color: var(--navy);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.sd-banner .btn {
+    flex: none;
+}
+
+.sd-banner.warn {
+    background: linear-gradient(
+        135deg,
+        rgba(245, 158, 11, 0.1),
+        rgba(245, 158, 11, 0.04)
+    );
+    border-color: rgba(245, 158, 11, 0.25);
+}
+
+.sd-banner.warn svg {
+    color: #d97706;
+}
+
+/* —— Steps / checklist (Overview) —— */
+.sd-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.sd-step-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.5rem;
+    border-radius: 10px;
+}
+
+button.sd-step-item {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+button.sd-step-item:hover {
+    background: var(--gray-light);
+}
+
+.sd-step-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: grid;
+    place-items: center;
+    flex: none;
+    color: transparent;
+}
+
+.sd-step-check.done {
+    border-color: #10b981;
+    background: #10b981;
+    color: #fff;
+}
+
+.sd-step-label {
+    flex: 1;
+    font-size: 0.92rem;
+    color: var(--navy);
+    font-weight: 600;
+}
+
+.sd-step-label.done {
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.sd-step-arrow {
+    color: var(--muted);
+    flex: none;
+}
+
+/* —— Empty state —— */
+.sd-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2.75rem 1.5rem;
+    color: var(--muted);
+}
+
+.sd-empty-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: var(--gray-light);
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    margin-bottom: 1rem;
+}
+
+.sd-empty p {
+    margin: 0 0 1.1rem;
+    font-size: 0.92rem;
+    max-width: 40ch;
+}
+
+/* —— Skeleton loaders —— */
+.sd-skel {
+    background: linear-gradient(
+        90deg,
+        var(--gray-light) 25%,
+        var(--gray) 37%,
+        var(--gray-light) 63%
+    );
+    background-size: 400% 100%;
+    animation: sd-shimmer 1.4s ease infinite;
+    border-radius: 8px;
+}
+
+@keyframes sd-shimmer {
+    0% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0 50%;
+    }
+}
+
+.sd-skel-line {
+    height: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.sd-skel-stat {
+    height: 84px;
+    border-radius: 14px;
+}
+
+.sd-skel-card {
+    height: 160px;
+    border-radius: 14px;
+}
+
+.sd-skel-row {
+    height: 46px;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+/* —— Table —— */
+.sd-table-wrap {
+    overflow-x: auto;
+}
+
+.sd-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.89rem;
+}
+
+.sd-table thead th {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.sd-table tbody td {
+    padding: 0.8rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--navy);
+}
+
+.sd-table tbody tr:hover {
+    background: var(--gray-light);
+}
+
+.sd-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* —— Badges / pills —— */
+.sd-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sd-badge.green {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.sd-badge.red {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.sd-badge.amber {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.sd-badge.blue {
+    background: var(--accent-soft);
+    color: var(--blue);
+}
+
+.sd-badge.gray {
+    background: var(--gray-light);
+    color: var(--muted);
+}
+
+.sd-badge-btn {
+    border: 0;
+    cursor: pointer;
+}
+
+/* —— Small icon buttons for row actions —— */
+.sd-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--white);
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.sd-icon-btn:hover {
+    background: var(--gray-light);
+    color: var(--navy);
+}
+
+.sd-icon-btn.danger:hover {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+.sd-row-actions {
+    display: flex;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
+/* —— Toolbar (search/filter row) —— */
+.sd-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+}
+
+.sd-toolbar-search {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+
+.sd-toolbar-search svg {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.sd-toolbar-search input {
+    width: 100%;
+    padding: 0.62rem 0.8rem 0.62rem 2.35rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font: inherit;
+    background: var(--white);
+    color: var(--navy);
+}
+
+.sd-toolbar select {
+    padding: 0.62rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font: inherit;
+    background: var(--white);
+    color: var(--navy);
+}
+
+.sd-toolbar input:focus,
+.sd-toolbar select:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(42, 94, 232, 0.12);
+}
+
+/* —— Alerts —— */
+.sd-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    margin-bottom: 1.1rem;
+}
+
+.sd-alert svg {
+    flex: none;
+    margin-top: 0.1rem;
+}
+
+.sd-alert-error {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.sd-alert-success {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.sd-alert-info {
+    background: var(--accent-soft);
+    color: var(--blue);
+}
+
+/* —— Forms inside dashboard cards —— */
+.sd-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.05rem;
+}
+
+.sd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.sd-field-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--navy);
+}
+
+.sd-field input[type="text"],
+.sd-field input[type="email"],
+.sd-field input[type="number"],
+.sd-field input[type="password"],
+.sd-field input:not([type]),
+.sd-field select,
+.sd-field textarea {
+    padding: 0.68rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font: inherit;
+    color: var(--navy);
+    background: var(--white);
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.sd-field input:focus,
+.sd-field select:focus,
+.sd-field textarea:focus {
+    outline: none;
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(42, 94, 232, 0.12);
+}
+
+.sd-field-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--navy);
+}
+
+.sd-color-field {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.sd-color-field input[type="color"] {
+    width: 44px;
+    height: 36px;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--white);
+    cursor: pointer;
+}
+
+.sd-color-field code {
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+/* —— Responsive: sidebar becomes a drawer —— */
+@media (max-width: 980px) {
+    .sd-sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 280px;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 110;
+    }
+
+    .sd-sidebar.is-open {
+        transform: translateX(0);
+    }
+
+    .sd-sidebar-close {
+        display: inline-flex;
+    }
+
+    .sd-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 26, 45, 0.45);
+        z-index: 100;
+    }
+
+    .sd-sidebar-backdrop.is-open {
+        display: block;
+    }
+
+    .sd-topbar-menu-btn {
+        display: inline-flex;
+    }
+
+    .sd-content {
+        padding: 1.25rem;
+    }
+
+    .sd-user-chip-name {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .sd-topbar {
+        padding: 0.75rem 1.1rem;
+    }
+
+    .sd-topbar-trial {
+        display: none;
+    }
+
+    .sd-page-title {
+        font-size: 1.3rem;
+    }
+}
+
+/* =========================================================
+   NEW COMPONENT STYLES — Dashboard UX Redesign
+   ========================================================= */
+
+/* —— Sidebar enhancements —— */
+.sd-sidebar-store-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+}
+
+.sd-sidebar-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: none;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.15);
+}
+
+.sd-sidebar-store-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+}
+
+.sd-sidebar-days {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.45);
+}
+
+/* —— Topbar widget status pill —— */
+.sd-topbar-widget-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.sd-topbar-widget-status.live {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.sd-topbar-widget-status.offline {
+    background: #fff7ed;
+    color: #b45309;
+}
+
+/* —— Big toggle switch —— */
+.sd-big-toggle {
+    position: relative;
+    width: 52px;
+    height: 28px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    flex: none;
+    transition: background 0.2s ease;
+    padding: 0;
+}
+
+.sd-big-toggle.on  { background: #10b981; }
+.sd-big-toggle.off { background: #d1d5db; }
+
+.sd-big-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease;
+}
+
+.sd-big-toggle.on .sd-big-toggle-thumb {
+    transform: translateX(24px);
+}
+
+/* —— Widget toggle row (top of Widget Settings) —— */
+.sd-widget-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.sd-widget-toggle-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--navy);
+}
+
+/* —— Toggle row (used in Account) —— */
+.sd-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+/* —— Notice/info banners —— */
+.sd-notice {
+    padding: 0.65rem 0.9rem;
+    border-radius: 10px;
+    font-size: 0.87rem;
+    font-weight: 600;
+}
+
+.sd-notice.warning {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+
+.sd-notice.info {
+    background: var(--accent-soft);
+    color: var(--blue);
+    border: 1px solid rgba(42,94,232,0.15);
+}
+
+/* —— Overview: checklist progress bar —— */
+.sd-checklist-progress {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--gray-light);
+    overflow: hidden;
+}
+
+.sd-checklist-bar {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #10b981, #059669);
+    transition: width 0.4s ease;
+}
+
+/* —— Overview: how-it-works grid —— */
+.sd-how-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.sd-how-step {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.85rem;
+    border-radius: 12px;
+    background: var(--gray-light);
+}
+
+.sd-how-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    color: var(--blue);
+    margin-bottom: 0.25rem;
+}
+
+.sd-how-step strong { font-size: 0.88rem; color: var(--navy); }
+.sd-how-step p { margin: 0; font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+
+/* —— Quick actions row (Overview) —— */
+.sd-quick-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.sd-quick-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.sd-quick-action-btn:hover {
+    background: var(--gray-light);
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(42,94,232,0.07);
+}
+
+.sd-quick-action-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--blue);
+    display: grid;
+    place-items: center;
+    flex: none;
+}
+
+.sd-quick-action-label {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--navy);
+}
+
+.sd-quick-action-desc {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+}
+
+/* —— My Store: mode cards —— */
+.sd-mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+}
+
+.sd-mode-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 1.1rem;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    background: var(--white);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    position: relative;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sd-mode-card:hover {
+    border-color: var(--blue);
+}
+
+.sd-mode-card.selected {
+    border-color: var(--blue);
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 3px rgba(42,94,232,0.1);
+}
+
+.sd-mode-check {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.sd-mode-card.selected .sd-mode-check { opacity: 1; }
+
+.sd-mode-icon { font-size: 1.6rem; line-height: 1; }
+.sd-mode-label { font-size: 0.95rem; font-weight: 800; color: var(--navy); }
+.sd-mode-desc  { font-size: 0.8rem;  color: var(--muted); margin: 0; line-height: 1.4; }
+
+.sd-mode-bullets {
+    list-style: none;
+    padding: 0;
+    margin: 0.35rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.sd-mode-bullets li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.77rem;
+    color: var(--muted);
+}
+
+.sd-mode-bullets svg { color: #10b981; flex: none; }
+
+/* —— My Store: info rows —— */
+.sd-info-rows { display: flex; flex-direction: column; gap: 0; }
+
+.sd-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.sd-info-row:last-child { border-bottom: 0; }
+.sd-info-label { font-size: 0.85rem; font-weight: 700; color: var(--navy); }
+.sd-info-value { font-size: 0.87rem; color: var(--muted); }
+
+/* —— My Store: WooCommerce status badge —— */
+.sd-woo-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.sd-woo-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.sd-woo-status-badge.connected    { background: #ecfdf5; color: #047857; }
+.sd-woo-status-badge.disconnected { background: var(--gray-light); color: var(--muted); }
+
+/* —— My Store: numbered steps —— */
+.sd-numbered-steps {
+    padding-left: 1.3rem;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--navy);
+    line-height: 1.5;
+}
+
+/* —— My Store: secret reveal banner —— */
+.sd-secret-banner {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 12px;
+}
+
+.sd-secret-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    color: #c2410c;
+    font-size: 0.88rem;
+}
+
+/* —— Embed tab: styled embed block —— */
+.sd-embed-block {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.sd-embed-pre {
+    margin: 0;
+    padding: 0.9rem 4rem 0.9rem 1rem;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: #0f172a;
+    color: #7dd3fc;
+    font-family: ui-monospace, Consolas, monospace;
+    line-height: 1.55;
+}
+
+.sd-embed-copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.65rem;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 7px;
+    color: #fff;
+    font: 600 0.77rem/1 inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.sd-embed-copy-btn:hover { background: rgba(255,255,255,0.18); }
+
+/* —— Embed tab: live status banner —— */
+.sd-live-status-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    border-radius: 14px;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.sd-live-status-banner.live {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+}
+
+.sd-live-status-banner.offline {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #c2410c;
+}
+
+.sd-live-status-banner span { font-size: 0.9rem; font-weight: 600; }
+.sd-live-status-banner strong { font-weight: 800; }
+
+.sd-live-toggle-btn {
+    margin-left: auto;
+    padding: 0.38rem 0.9rem;
+    border-radius: 8px;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    font: 600 0.8rem/1 inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.sd-live-status-banner.live   .sd-live-toggle-btn:hover { background: #d1fae5; }
+.sd-live-status-banner.offline .sd-live-toggle-btn:hover { background: #ffedd5; }
+
+/* —— Embed tab: install steps —— */
+.sd-install-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sd-install-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--white);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.sd-install-step:hover { background: var(--gray-light); }
+
+.sd-install-step.done {
+    border-color: #a7f3d0;
+    background: #f0fdf4;
+}
+
+.sd-install-check {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: grid;
+    place-items: center;
+    flex: none;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--muted);
+    transition: all 0.15s;
+}
+
+.sd-install-check.done {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
+}
+
+.sd-install-step-text strong { font-size: 0.88rem; color: var(--navy); display: block; }
+
+.sd-install-done {
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    font-weight: 700;
+    color: #047857;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* —— Widget Settings: preview area —— */
+.sd-preview-bg-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.sd-preview-bg-btn {
+    padding: 0.28rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--white);
+    font: 600 0.77rem/1 inherit;
+    color: var(--navy);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.sd-preview-bg-btn.active {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+}
+
+.sd-preview-site {
+    position: relative;
+    height: 100px;
+    border-radius: 10px;
+    overflow: hidden;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.sd-preview-site-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.sd-preview-site-bar {
+    height: 10px;
+    border-radius: 4px;
+    width: 60%;
+}
+
+.sd-preview-site-bar.short { width: 40%; }
+
+.sd-preview-launcher {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    cursor: default;
+    transition: background 0.2s;
+}
+
+/* —— Billing: current plan card —— */
+.sd-current-plan-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.sd-current-plan-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+}
+
+.sd-current-plan-name {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--navy);
+    text-transform: capitalize;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.sd-plan-progress { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; min-width: 130px; }
+
+.sd-plan-progress-track {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--gray-light);
+    overflow: hidden;
+}
+
+.sd-plan-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--blue), #7c3aed);
+    transition: width 0.4s ease;
+}
+
+/* —— Billing: plan card features —— */
+.plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: 100%;
+    text-align: left;
+}
+
+.plan-features li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.77rem;
+    color: var(--muted);
+}
+
+.plan-features svg { color: #10b981; flex: none; }
+
+/* —— Billing: trust row —— */
+.sd-pay-trust {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+}
+
+.sd-pay-trust span { display: flex; align-items: center; gap: 0.3rem; }
+
+/* —— Billing: manual payment method pills —— */
+.sd-method-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.sd-method-pill {
+    padding: 0.45rem 1.1rem;
+    border: 2px solid var(--border);
+    border-radius: 999px;
+    background: var(--white);
+    font: 600 0.85rem/1 inherit;
+    color: var(--navy);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.sd-method-pill.active {
+    border-color: var(--blue);
+    background: var(--accent-soft);
+    color: var(--blue);
+}
+
+/* —— Billing: payment number box —— */
+.sd-pay-number-box {
+    padding: 0.85rem 1rem;
+    background: var(--gray-light);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+}
+
+.sd-pay-number-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.sd-pay-number-value { font-size: 1.2rem; font-weight: 800; color: var(--navy); margin: 0.2rem 0 0.15rem; }
+
+/* —— Billing: manual plan label —— */
+.sd-manual-plan-label {
+    padding: 0.6rem 0.85rem;
+    background: var(--accent-soft);
+    border-radius: 8px;
+    font-size: 0.87rem;
+    color: var(--navy);
+}
+
+/* —— Account: profile hero —— */
+.sd-profile-hero {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    padding: 1.25rem 1.4rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(10,26,45,0.04);
+    margin-bottom: 1.5rem;
+}
+
+.sd-profile-avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2a5ee8, #1f4fd1);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 1.4rem;
+    font-weight: 800;
+    flex: none;
+}
+
+.sd-profile-name  { font-size: 1.05rem; font-weight: 800; color: var(--navy); }
+.sd-profile-email { font-size: 0.84rem; color: var(--muted); margin: 0.15rem 0 0.45rem; }
+
+/* —— Account: section labels —— */
+.sd-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+}
+
+/* —— Account: danger zone —— */
+.sd-danger-card {
+    border-left: 3px solid #b91c1c;
+    padding-left: 1rem;
+}
+
+.sd-danger-card > p {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+    color: var(--navy);
+    line-height: 1.5;
+}
+
+/* —— Help: FAQ accordion —— */
+.sd-faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sd-faq-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+}
+
+.sd-faq-item.open { border-color: var(--blue); }
+
+.sd-faq-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    background: transparent;
+    border: none;
+    font: 600 0.9rem/1.4 inherit;
+    color: var(--navy);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.sd-faq-trigger:hover { background: var(--gray-light); }
+.sd-faq-trigger svg { flex: none; color: var(--muted); }
+
+.sd-faq-answer {
+    padding: 0 1rem 0.85rem;
+    font-size: 0.87rem;
+    color: var(--muted);
+    line-height: 1.55;
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+}
+
+/* —— Plan grid cursor fix —— */
+.plan-card { cursor: pointer; }
+
+/* —— Responsive: mode grid on mobile —— */
+@media (max-width: 560px) {
+    .sd-mode-grid { grid-template-columns: 1fr; }
+    .sd-how-grid  { grid-template-columns: 1fr; }
+    .sd-current-plan-card { flex-direction: column; }
+    .sd-plan-progress { align-items: flex-start; width: 100%; min-width: unset; }
+}
+
+/* —— Mode card SVG icon wrapper —— */
+.sd-mode-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--blue);
+    margin-bottom: 0.15rem;
+}
+
+.sd-mode-card.selected .sd-mode-icon-wrap {
+    background: rgba(42, 94, 232, 0.15);
+}
+
+/* —— Account: forgot password inline flow —— */
+.sd-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: none;
+    background: transparent;
+    color: var(--blue);
+    font: 600 0.84rem/1 inherit;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 0.75rem;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.sd-back-link:hover { color: #1f4fd1; }
+
+.sd-text-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: 600 0.82rem/1 inherit;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.sd-text-link:hover { color: var(--navy); }
+
+
