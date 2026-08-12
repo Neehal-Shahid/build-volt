@@ -4,7 +4,7 @@
  */
 import 'dotenv/config'
 
-const BASE = process.env.API_URL || 'http://127.0.0.1:3001'
+const BASE = process.env.API_URL || 'https://build-volt-production.up.railway.app'
 const results = []
 let pass = 0
 let fail = 0
@@ -186,7 +186,7 @@ async function main() {
   ok(
     'P8 analytics',
     r.status === 200 &&
-      (Number(r.data?.totalRecommendations || 0) >= 1 || (r.data?.recent?.length || 0) >= 1 || r.data?.success)
+    (Number(r.data?.totalRecommendations || 0) >= 1 || (r.data?.recent?.length || 0) >= 1 || r.data?.success)
   )
 
   r = await req('/api/plans')
