@@ -147,7 +147,7 @@ const update = {
   name: 'BuildBot for WooCommerce',
   slug: 'buildbot-woocommerce',
   version: VERSION,
-  download_url: `${process.env.PUBLIC_API_URL || 'http://127.0.0.1:3001'}/buildbot-woocommerce.zip`,
+  download_url: `${process.env.PUBLIC_API_URL || 'https://build-volt-production.up.railway.app'}/buildbot-woocommerce.zip`,
   requires: '5.8',
   tested: '6.5',
   last_updated: new Date().toISOString().slice(0, 10),
