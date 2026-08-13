@@ -9,6 +9,12 @@ import {
   hashPassword,
   validatePassword,
 } from '../lib/auth.js'
+import {
+  canServeWidget,
+  widgetPauseReason,
+  pauseMessage,
+  publicPlanStatus,
+} from '../lib/storePlan.js'
 
 const router = Router()
 
@@ -117,24 +123,57 @@ router.get('/store-config/:storeId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Store not found' })
     }
 
-    const active = !!store.active && !store.disabled
+    const pauseReason = widgetPauseReason(store)
+    const available = canServeWidget(store)
+    const planStatus = publicPlanStatus(store)
+
     res.json({
       success: true,
-      active,
-      widgetEnabled: !!store.widget_enabled,
+      active: available,
+      widgetEnabled: available,
+      paused: !available,
+      pauseReason: pauseReason || null,
+      pauseMessage: pauseReason ? pauseMessage(pauseReason) : null,
       brandColor: store.brand_color || '#2A5EE8',
       currency: store.currency || 'PKR',
       widgetTitle: store.widget_title || 'BuildBot',
       welcomeMsg: store.welcome_msg || '',
       buttonText: store.button_text || 'Get Started',
-      widgetBg: store.widget_bg || '#0A1A2D',
+      widgetBg: store.widget_bg || '#FFFFFF',
       budgetPresets: parsePresets(store.budget_presets),
+      plan: store.plan,
+      planStatus,
     })
   } catch (err) {
     console.error('[store-config]', err)
     res
       .status(500)
       .json({ success: false, error: 'Could not load store config' })
+  }
+})
+
+// POST /api/widget-ping/:storeId (public — widget install beacon)
+router.post('/widget-ping/:storeId', async (req, res) => {
+  try {
+    const storeId = String(req.params.storeId || '').trim()
+    const store = await getStoreById(storeId)
+    if (!store) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
+
+    await getDb().execute({
+      sql: `UPDATE stores
+            SET widget_last_seen = datetime('now'),
+                widget_installed_at = COALESCE(widget_installed_at, datetime('now')),
+                updated_at = datetime('now')
+            WHERE id = ?`,
+      args: [storeId],
+    })
+
+    res.json({ success: true })
+  } catch (err) {
+    console.error('[widget-ping]', err)
+    res.status(500).json({ success: false, error: 'Ping failed' })
   }
 })
 
@@ -149,9 +188,8 @@ router.put('/widget-settings', authStore, async (req, res) => {
     const brandColor = String(
       req.body.brandColor ?? store.brand_color ?? '#2A5EE8',
     ).trim()
-    const widgetBg = String(
-      req.body.widgetBg ?? store.widget_bg ?? '#0A1A2D',
-    ).trim()
+    // Panel background is fixed white for consistent contrast
+    const widgetBg = '#FFFFFF'
     const currency = String(req.body.currency ?? store.currency ?? 'PKR')
       .trim()
       .slice(0, 8)

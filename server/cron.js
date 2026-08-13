@@ -82,16 +82,16 @@ export async function runDripOnce() {
             store,
             'trial_ending_3d',
             'Your BuildBot trial ends in 3 days',
-            `Hi ${store.name || 'there'}, your trial ends on ${store.trial_ends}. Upgrade in Billing to keep recommending builds.`,
-            `<p>Your trial ends in <strong>3 days</strong>.</p><p>Upgrade in Billing to stay live.</p>`
+            `Hi ${store.name || 'there'}, your trial ends on ${store.trial_ends}. Upgrade in Billing to keep your widget live.`,
+            `<p>Your trial ends in <strong>3 days</strong>. Your widget will pause when the trial ends — upgrade in Billing to stay live.</p>`
           )
         } else if (daysLeft === 1) {
           await sendDrip(
             store,
             'trial_ending_1d',
             'Your BuildBot trial ends tomorrow',
-            `Your BuildBot trial ends tomorrow (${store.trial_ends}). Upgrade now to avoid interruption.`,
-            `<p>Your trial ends <strong>tomorrow</strong>.</p>`
+            `Your BuildBot trial ends tomorrow (${store.trial_ends}). Upgrade now — your widget will pause when the trial ends.`,
+            `<p>Your trial ends <strong>tomorrow</strong>. Upgrade in Billing to keep your widget live.</p>`
           )
         }
       }

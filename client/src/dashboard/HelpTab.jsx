@@ -24,7 +24,7 @@ const FAQS = [
   },
   {
     q: "What happens when my trial ends?",
-    a: "If your trial expires, your widget will be paused and shoppers won't see it. You can reactivate it at any time by upgrading to a paid plan from the Billing tab — no data is lost.",
+    a: "When your trial ends, your widget is paused and shoppers won't see it. Upgrade from the Billing tab to restore your widget and unlock higher recommendation limits. Your products and analytics history are kept.",
   },
   {
     q: "How long does manual payment approval take?",

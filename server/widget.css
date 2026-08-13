@@ -1,10 +1,11 @@
 /* BuildBot shopper widget — served from API host */
 :root {
   --bb-brand: #2a5ee8;
-  --bb-bg: #0a1a2d;
-  --bb-text: #f8fafc;
-  --bb-muted: #94a3b8;
-  --bb-panel: #111827;
+  --bb-bg: #ffffff;
+  --bb-text: #0a1a2d;
+  --bb-muted: #64748b;
+  --bb-panel: #f8fafc;
+  --bb-border: #e2e8f0;
   --bb-radius: 16px;
 }
 
@@ -20,7 +21,7 @@
   background: var(--bb-brand);
   color: #fff;
   font-size: 22px;
-  box-shadow: 0 12px 30px rgba(10, 26, 45, 0.35);
+  box-shadow: 0 12px 30px rgba(10, 26, 45, 0.2);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -43,8 +44,8 @@
   background: var(--bb-bg);
   color: var(--bb-text);
   border-radius: var(--bb-radius);
-  box-shadow: 0 24px 60px rgba(10, 26, 45, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px rgba(10, 26, 45, 0.15);
+  border: 1px solid var(--bb-border);
   font-family: "Segoe UI", system-ui, sans-serif;
   display: none;
 }
@@ -60,22 +61,28 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1rem 1rem 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--bb-border);
 }
 
 .bb-header strong {
   font-size: 1.05rem;
+  color: var(--bb-text);
 }
 
 .bb-close {
   border: 0;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--bb-text);
+  background: var(--bb-panel);
+  color: var(--bb-muted);
   width: 32px;
   height: 32px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
+}
+
+.bb-close:hover {
+  background: var(--bb-border);
+  color: var(--bb-text);
 }
 
 .bb-body {
@@ -92,6 +99,7 @@
 .bb-title {
   margin: 0 0 0.5rem;
   font-size: 1.25rem;
+  color: var(--bb-text);
 }
 
 .bb-btn {
@@ -115,7 +123,9 @@
 }
 
 .bb-btn-ghost {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bb-panel);
+  color: var(--bb-text);
+  border: 1px solid var(--bb-border);
   margin-top: 0.6rem;
 }
 
@@ -123,9 +133,10 @@
   margin-top: 1rem;
   padding: 0.75rem;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bb-panel);
   color: var(--bb-muted);
   font-size: 0.85rem;
+  border: 1px solid var(--bb-border);
 }
 
 .bb-input {
@@ -134,10 +145,15 @@
   margin-bottom: 0.75rem;
   padding: 0.75rem 0.85rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--bb-border);
+  background: #fff;
   color: var(--bb-text);
   font: inherit;
+}
+
+.bb-input:focus {
+  outline: 2px solid rgba(42, 94, 232, 0.25);
+  border-color: var(--bb-brand);
 }
 
 .bb-chips {
@@ -148,8 +164,8 @@
 }
 
 .bb-chip {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--bb-border);
+  background: #fff;
   color: var(--bb-text);
   border-radius: 999px;
   padding: 0.4rem 0.7rem;
@@ -161,6 +177,7 @@
 .bb-chip-active {
   background: var(--bb-brand);
   border-color: transparent;
+  color: #fff;
 }
 
 .bb-steps {
@@ -172,7 +189,7 @@
 .bb-step {
   padding: 0.55rem 0;
   color: var(--bb-muted);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--bb-border);
 }
 
 .bb-step.on {
@@ -189,8 +206,8 @@
 
 .bb-card {
   text-align: left;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--bb-border);
+  background: #fff;
   color: var(--bb-text);
   border-radius: 12px;
   padding: 0.8rem 0.9rem;
@@ -201,6 +218,11 @@
   font: inherit;
 }
 
+.bb-card:hover {
+  border-color: var(--bb-brand);
+  box-shadow: 0 4px 12px rgba(42, 94, 232, 0.08);
+}
+
 .bb-card-tag {
   color: var(--bb-muted);
   font-size: 0.82rem;
@@ -208,7 +230,7 @@
 
 .bb-card-price {
   font-weight: 700;
-  color: #fff;
+  color: var(--bb-brand);
 }
 
 .bb-tiny {
@@ -220,7 +242,7 @@
   position: fixed;
   inset: 0;
   z-index: 2147483001;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(10, 26, 45, 0.45);
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -238,7 +260,8 @@
   color: var(--bb-text);
   border-radius: 14px;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--bb-border);
+  box-shadow: 0 24px 60px rgba(10, 26, 45, 0.2);
 }
 
 .bb-modal-head {

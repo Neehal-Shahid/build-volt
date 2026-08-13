@@ -1039,6 +1039,27 @@ button.sd-step-item:hover {
     color: #b45309;
 }
 
+.sd-topbar-widget-status.pending {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.sd-topbar-widget-status.paused {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+/* —— Analytics usage meter —— */
+.sd-usage-meter { }
+
+.sd-usage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
 /* —— Big toggle switch —— */
 .sd-big-toggle {
     position: relative;
@@ -1438,6 +1459,16 @@ button.sd-step-item:hover {
 .sd-live-status-banner.live   .sd-live-toggle-btn:hover { background: #d1fae5; }
 .sd-live-status-banner.offline .sd-live-toggle-btn:hover { background: #ffedd5; }
 
+.sd-live-toggle-btn.primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+}
+
+.sd-live-status-banner.offline .sd-live-toggle-btn.primary:hover {
+    background: #1f4fd1;
+}
+
 /* —— Embed tab: install steps —— */
 .sd-install-steps {
     display: flex;
@@ -1631,6 +1662,65 @@ button.sd-step-item:hover {
 }
 
 .plan-features svg { color: #10b981; flex: none; }
+
+.plan-card-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--blue);
+    background: var(--accent-soft);
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    margin-bottom: 0.35rem;
+}
+
+/* —— Billing: card pay box —— */
+.sd-card-pay-box {
+    padding: 1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.sd-card-pay-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+}
+
+.sd-card-pay-plan {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--navy);
+}
+
+.sd-card-pay-plan strong {
+    display: block;
+    font-size: 0.95rem;
+}
+
+.sd-card-pay-amount {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--navy);
+    white-space: nowrap;
+}
+
+.sd-card-pay-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 800;
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.5rem;
+    padding: 0.85rem 1.25rem;
+}
 
 /* —— Billing: trust row —— */
 .sd-pay-trust {

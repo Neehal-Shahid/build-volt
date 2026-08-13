@@ -1,6 +1,12 @@
 import { Router } from 'express'
 import { getDb, getPlatformConfig } from '../database.js'
 import { getStoreById } from '../lib/auth.js'
+import {
+  canServeWidget,
+  widgetPauseReason,
+  pauseMessage,
+  planLimit,
+} from '../lib/storePlan.js'
 
 const router = Router()
 
@@ -54,24 +60,8 @@ async function countUsage(storeId, period) {
   return Number(result.rows[0]?.c || 0)
 }
 
-function planLimit(store, config) {
-  const plan = String(store.plan || 'trial').toLowerCase()
-  if (plan === 'trial') {
-    return {
-      limit: Number(config.trial_daily_limit || 3),
-      period: 'day',
-    }
-  }
-  if (plan === 'starter') {
-    return { limit: Number(config.limit_starter || 500), period: 'month' }
-  }
-  if (plan === 'growth') {
-    return { limit: Number(config.limit_growth || 2000), period: 'month' }
-  }
-  if (plan === 'pro') {
-    return { limit: Number(config.limit_pro || 5000), period: 'month' }
-  }
-  return { limit: Number(config.trial_daily_limit || 3), period: 'day' }
+function planLimitFromStore(store, config) {
+  return planLimit(store, config)
 }
 
 function pickProducts(products, budget, purpose) {
@@ -264,6 +254,15 @@ router.post('/recommend', async (req, res) => {
     if (!store || !store.active || store.disabled) {
       return res.status(404).json({ success: false, error: 'Store not available' })
     }
+
+    const pauseReason = widgetPauseReason(store)
+    if (pauseReason === 'trial_expired' || pauseReason === 'plan_expired') {
+      return res.status(403).json({
+        success: false,
+        error: pauseMessage(pauseReason),
+        code: pauseReason,
+      })
+    }
     if (!store.widget_enabled) {
       return res.status(403).json({ success: false, error: 'Widget is disabled for this store' })
     }
@@ -273,7 +272,7 @@ router.post('/recommend', async (req, res) => {
       return res.status(503).json({ success: false, error: 'BuildBot is under maintenance' })
     }
 
-    const { limit, period } = planLimit(store, config)
+    const { limit, period } = planLimitFromStore(store, config)
     const used = await countUsage(storeId, period)
     if (used >= limit) {
       return res.status(429).json({

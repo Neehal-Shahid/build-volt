@@ -9,6 +9,7 @@ import {
 } from '../lib/auth.js'
 import { validateDemoPayment, DEMO_TEST_CARDS, formatCardNumber } from '../lib/demoCards.js'
 import { normalizePaymentMode, modeFlags } from '../lib/paymentMode.js'
+import { planLimit, isPlanLapsed } from '../lib/storePlan.js'
 
 const router = Router()
 
@@ -45,19 +46,21 @@ function plansFromConfig(config) {
 }
 
 function currentLimit(store, config) {
-  const plan = String(store.plan || 'trial').toLowerCase()
-  if (plan === 'trial') {
-    return {
-      limit: Number(config.trial_daily_limit || 3),
-      period: 'day',
-    }
-  }
-  const plans = plansFromConfig(config)
-  const hit = plans.find((p) => p.id === plan)
-  return {
-    limit: hit?.limit || Number(config.limit_starter || 500),
-    period: 'month',
-  }
+  return planLimit(store, config)
+}
+
+async function countUsage(storeId, period) {
+  const db = getDb()
+  const sql =
+    period === 'day'
+      ? `SELECT COUNT(*) AS c FROM recommendations
+         WHERE store_id = ? AND source != 'cached'
+           AND created_at >= datetime('now', '-1 day')`
+      : `SELECT COUNT(*) AS c FROM recommendations
+         WHERE store_id = ? AND source != 'cached'
+           AND created_at >= datetime('now', '-30 days')`
+  const result = await db.execute({ sql, args: [storeId] })
+  return Number(result.rows[0]?.c || 0)
 }
 
 function mapPayment(p) {
@@ -99,6 +102,7 @@ router.get('/plans', async (_req, res) => {
       paymentNumber: config.payment_number || '',
       ...modeFlags(mode),
       demoCards: DEMO_TEST_CARDS.map((c) => ({
+        number: c.number,
         numberDisplay: formatCardNumber(c.number),
         brand: c.brand,
         label: c.label,
@@ -116,6 +120,10 @@ router.get('/analytics', authStore, async (req, res) => {
   try {
     const storeId = req.user.storeId
     const db = getDb()
+    const store = await getStoreById(storeId)
+    const config = await getPlatformConfig()
+    const lim = currentLimit(store, config)
+    const used = await countUsage(storeId, lim.period)
 
     const total = await db.execute({
       sql: `SELECT COUNT(*) AS c FROM recommendations WHERE store_id = ?`,
@@ -169,6 +177,13 @@ router.get('/analytics', authStore, async (req, res) => {
         canBuild: !!r.can_build,
         createdAt: r.created_at,
       })),
+      usage: {
+        used,
+        limit: lim.limit,
+        remaining: Math.max(0, lim.limit - used),
+        period: lim.period,
+      },
+      planLapsed: isPlanLapsed(store),
     })
   } catch (err) {
     console.error('[analytics]', err)

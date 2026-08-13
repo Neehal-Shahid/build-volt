@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Shield, Lock, CheckCircle } from 'lucide-react'
+import { Shield, Lock, CheckCircle, CreditCard } from 'lucide-react'
 
 function digits(v) { return String(v || '').replace(/\D/g, '') }
 
@@ -25,20 +25,25 @@ function formatExpiry(v) {
   return `${s.slice(0, 2)}/${s.slice(2)}`
 }
 
-export default function DemoCheckout({ plan, onClose, onPay }) {
+export default function DemoCheckout({ plan, demoCards = [], onClose, onPay }) {
   const [number, setNumber]   = useState('')
   const [name, setName]       = useState('')
   const [expiry, setExpiry]   = useState('')
   const [cvc, setCvc]         = useState('')
   const [flipped, setFlipped] = useState(false)
   const [busy, setBusy]       = useState(false)
-  const [phase, setPhase]     = useState('form') // form | processing | success | error
+  const [phase, setPhase]     = useState('form')
   const [error, setError]     = useState('')
   const [receipt, setReceipt] = useState(null)
 
   const brand = detectBrand(number)
   const displayNum = formatNumber(number) || '•••• •••• •••• ••••'
   const last4 = digits(number).slice(-4)
+
+  const successCards = useMemo(
+    () => (demoCards || []).filter((c) => c.result === 'success'),
+    [demoCards],
+  )
 
   const brandLabel = useMemo(() => {
     if (brand === 'visa') return 'VISA'
@@ -47,13 +52,30 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
     return 'CARD'
   }, [brand])
 
+  function fillTestCard(cardNumber) {
+    setNumber(digits(cardNumber))
+    setName('Test User')
+    setExpiry('12/30')
+    setCvc(detectBrand(cardNumber) === 'amex' ? '1234' : '123')
+    setError('')
+    setPhase('form')
+  }
+
+  function handleClose() {
+    if (phase === 'processing') return
+    if (phase === 'success') {
+      onClose({ success: true, receipt, plan })
+      return
+    }
+    onClose(null)
+  }
+
   async function submit(e) {
     e.preventDefault()
     setError('')
     setBusy(true)
     setPhase('processing')
     try {
-      // Brief pause for realism
       await new Promise((r) => setTimeout(r, 1400))
       const result = await onPay({
         number: digits(number),
@@ -65,7 +87,6 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
       setReceipt(result.receipt || null)
       setPhase('success')
     } catch (err) {
-      // BUGFIX: always reset phase to 'error' so the form doesn't stay stuck on 'processing'
       setError(err.message || 'Payment failed')
       setPhase('error')
     } finally {
@@ -74,11 +95,18 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
   }
 
   return (
-    <div className="pay-overlay" role="dialog" aria-modal="true">
-      <div className="pay-shell">
-        <button type="button" className="pay-close" onClick={onClose} aria-label="Close">×</button>
+    <div className="pay-overlay" role="dialog" aria-modal="true" onClick={handleClose}>
+      <div className="pay-shell" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          className="pay-close"
+          onClick={handleClose}
+          aria-label="Close"
+          disabled={phase === 'processing'}
+        >
+          ×
+        </button>
 
-        {/* Left panel */}
         <div className="pay-left">
           <p className="pay-kicker">Secure Checkout</p>
           <h2>Complete payment</h2>
@@ -87,7 +115,6 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
             <span> / {plan.name} · 30 days</span>
           </p>
 
-          {/* Animated card */}
           <div className={`pay-card brand-${brand} ${flipped ? 'is-flipped' : ''}`}>
             <div className="pay-card-face pay-card-front">
               <div className="pay-card-top">
@@ -115,7 +142,6 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
             </div>
           </div>
 
-          {/* Trust badges — no "Demo" word */}
           <div className="pay-trust">
             <span><Lock size={11} /> 256-bit TLS</span>
             <span><Shield size={11} /> Secure checkout</span>
@@ -123,7 +149,6 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
           </div>
         </div>
 
-        {/* Right panel */}
         <div className="pay-right">
           {phase === 'processing' && (
             <div className="pay-status">
@@ -135,22 +160,26 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
 
           {phase === 'success' && (
             <div className="pay-status ok">
-              <div className="pay-check">✓</div>
+              <div className="pay-check">
+                <CheckCircle size={28} strokeWidth={2.5} />
+              </div>
               <h3>Payment successful</h3>
               <p>
-                {receipt?.brand || 'Card'} •••• {receipt?.last4 || last4} charged PKR{' '}
+                {receipt?.brand || 'Card'} •••• {receipt?.last4 || last4} — PKR{' '}
                 {Number(receipt?.amount || plan.price).toLocaleString()}
               </p>
-              <p className="muted tiny">Your plan is now active for 30 days.</p>
-              <button type="button" className="btn" onClick={onClose}>
-                Back to billing
+              <p className="muted tiny">
+                Your <strong>{receipt?.plan || plan.name}</strong> plan is now active for 30 days.
+              </p>
+              <button type="button" className="btn pay-success-btn" onClick={handleClose}>
+                Continue to billing
               </button>
             </div>
           )}
 
           {(phase === 'form' || phase === 'error') && (
             <form className="pay-form" onSubmit={submit}>
-              <h3>Card details</h3>
+              <h3><CreditCard size={18} style={{ verticalAlign: -3, marginRight: 6 }} />Card details</h3>
               {error && <p className="form-error">{error}</p>}
 
               <label>
@@ -204,12 +233,28 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
                 </label>
               </div>
 
+              {successCards.length > 0 && (
+                <div className="pay-test-cards">
+                  <strong>Test cards (demo mode)</strong>
+                  {successCards.map((c) => (
+                    <button
+                      key={c.number || c.numberDisplay}
+                      type="button"
+                      onClick={() => fillTestCard(c.number || c.numberDisplay.replace(/\s/g, ''))}
+                    >
+                      <span>{c.numberDisplay}</span>
+                      <span className="muted tiny"> — {c.brand} · {c.hint}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <button className="btn pay-submit" type="submit" disabled={busy}>
                 {busy ? 'Processing…' : `Pay PKR ${Number(plan.price).toLocaleString()}`}
               </button>
 
-              <p className="muted tiny" style={{ textAlign: 'center', marginTop: '0.5rem' }}>
-                Your card details are processed securely. Plan activates instantly on success.
+              <p className="muted tiny pay-form-footnote">
+                Demo checkout — no real charges. Plan activates instantly on success.
               </p>
             </form>
           )}

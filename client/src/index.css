@@ -982,6 +982,16 @@ code {
     margin-top: 0.25rem;
 }
 
+.pay-success-btn {
+    margin-top: 0.75rem;
+    min-width: 200px;
+}
+
+.pay-form-footnote {
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
 .pay-test-cards {
     margin-top: 1rem;
     display: flex;

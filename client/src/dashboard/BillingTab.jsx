@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   CreditCard, Landmark, History, Shield, CheckCircle,
-  Clock, TrendingUp, Zap, Smartphone, Banknote
+  Clock, TrendingUp, Zap, Smartphone, Banknote, Sparkles
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
@@ -12,6 +12,7 @@ import Badge from "./ui/Badge";
 import EmptyState from "./ui/EmptyState";
 import Alert from "./ui/Alert";
 import { SkeletonStats, SkeletonCard } from "./ui/Skeleton";
+import { isPlanLapsed } from "../lib/widgetStatus";
 
 function relTime(iso) {
   if (!iso) return "—";
@@ -34,9 +35,10 @@ const METHODS = [
   { id: "EasyPaisa", label: "EasyPaisa", Icon: Banknote },
 ];
 
-export default function BillingTab({ store, onGoTab }) {
+export default function BillingTab({ store }) {
   const { token, persistSession } = useAuth();
   const [plans, setPlans] = useState([]);
+  const [demoCards, setDemoCards] = useState([]);
   const [paymentNumber, setPaymentNumber] = useState("");
   const [history, setHistory] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -51,15 +53,16 @@ export default function BillingTab({ store, onGoTab }) {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  async function load() {
+  async function load(preserveMessage = false) {
     setLoading(true);
-    setError("");
+    if (!preserveMessage) setError("");
     try {
       const [plansRes, histRes] = await Promise.all([
         api("/api/plans"),
         api("/api/payment/history", { token }),
       ]);
       setPlans(plansRes.plans || []);
+      setDemoCards(plansRes.demoCards || []);
       setPaymentNumber(plansRes.paymentNumber || histRes.paymentNumber || "");
       setHistory(histRes.payments || []);
       setCurrent(histRes.current || null);
@@ -89,7 +92,7 @@ export default function BillingTab({ store, onGoTab }) {
       });
       setMessage(res.message);
       setTransactionRef("");
-      await load();
+      await load(true);
     } catch (err) {
       setError(err.message || "Submit failed");
     } finally {
@@ -97,9 +100,6 @@ export default function BillingTab({ store, onGoTab }) {
     }
   }
 
-  // BUGFIX: Do NOT call load() inside payDemo — it resets loading state and
-  // destroys the DemoCheckout component while it's still showing success.
-  // Instead, return the result; the checkout will close itself, and THEN we reload.
   async function payDemo(payload) {
     const res = await api("/api/payment/demo-checkout", {
       method: "POST", token, body: payload,
@@ -108,10 +108,19 @@ export default function BillingTab({ store, onGoTab }) {
     return res;
   }
 
-  // Called by DemoCheckout onClose after success — reload billing data then
-  function handleCheckoutClose() {
+  function handleCheckoutClose(result) {
     setCheckoutOpen(false);
-    load();
+    if (result?.success) {
+      const planName = result.receipt?.plan || result.plan?.name || selectedPlan;
+      const amount = Number(result.receipt?.amount || selected?.price || 0).toLocaleString();
+      setMessage(
+        `Payment successful! Your ${planName} plan is now active for 30 days (PKR ${amount} charged).`,
+      );
+      setError("");
+      load(true);
+    } else {
+      load();
+    }
   }
 
   if (loading) {
@@ -132,6 +141,7 @@ export default function BillingTab({ store, onGoTab }) {
     ? Math.max(0, Math.ceil((new Date(current.planEnds) - Date.now()) / 86400000))
     : null;
   const planProgress = planDaysLeft != null ? Math.min(100, ((30 - planDaysLeft) / 30) * 100) : null;
+  const planLapsed = isPlanLapsed(store);
 
   return (
     <>
@@ -140,7 +150,16 @@ export default function BillingTab({ store, onGoTab }) {
       <Alert type="success">{message}</Alert>
       <Alert type="error">{error}</Alert>
 
-      {/* Current plan status card */}
+      {planLapsed && (
+        <div className="sd-banner warn">
+          <p style={{ margin: 0 }}>
+            {store?.plan === "trial"
+              ? "Your trial has ended. Choose a plan below to restore your widget and unlock full limits."
+              : "Your plan has expired. Renew below to restore your widget and recommendation limits."}
+          </p>
+        </div>
+      )}
+
       <Card>
         <div className="sd-current-plan-card">
           <div className="sd-current-plan-left">
@@ -148,10 +167,10 @@ export default function BillingTab({ store, onGoTab }) {
             <div className="sd-current-plan-name">
               {current?.plan || store?.plan || "Trial"}
               <Badge
-                tone={isTrial ? "amber" : "green"}
+                tone={planLapsed ? "red" : isTrial ? "amber" : "green"}
                 style={{ marginLeft: "0.5rem", textTransform: "capitalize" }}
               >
-                {isTrial ? "Trial" : "Active"}
+                {planLapsed ? "Expired" : isTrial ? "Trial" : "Active"}
               </Badge>
             </div>
             {isTrial && trialDays !== null && (
@@ -178,17 +197,22 @@ export default function BillingTab({ store, onGoTab }) {
         </div>
       </Card>
 
-      {/* Plan picker */}
       <div className="plan-grid">
         {plans.map((p) => {
           const features = PLAN_FEATURES[p.id] || [];
+          const isSelected = selectedPlan === p.id;
           return (
             <button
               key={p.id}
               type="button"
-              className={`plan-card ${selectedPlan === p.id ? "active" : ""}`}
+              className={`plan-card ${isSelected ? "active" : ""}`}
               onClick={() => setSelectedPlan(p.id)}
             >
+              {isSelected && (
+                <span className="plan-card-badge">
+                  <CheckCircle size={12} strokeWidth={2.5} /> Selected
+                </span>
+              )}
               <strong>{p.name}</strong>
               <span className="plan-price">
                 PKR {Number(p.price).toLocaleString()}
@@ -207,32 +231,43 @@ export default function BillingTab({ store, onGoTab }) {
         })}
       </div>
 
-      {/* Card payment */}
       {demoEnabled && selected && (
-        <Card title="Pay with Card" icon={CreditCard}>
-          <div className="sd-pay-trust">
-            <span><Shield size={13} /> Secure checkout</span>
-            <span><Zap size={13} /> Instant activation</span>
-            <span>✓ 30-day access</span>
+        <Card title="Pay with card" icon={CreditCard}>
+          <div className="sd-card-pay-box">
+            <div className="sd-card-pay-summary">
+              <div className="sd-card-pay-plan">
+                <Sparkles size={16} strokeWidth={2} />
+                <div>
+                  <strong>{selected.name} plan</strong>
+                  <span className="muted tiny">30 days · instant activation</span>
+                </div>
+              </div>
+              <div className="sd-card-pay-amount">
+                PKR {Number(selected.price).toLocaleString()}
+              </div>
+            </div>
+            <div className="sd-pay-trust">
+              <span><Shield size={13} /> Secure checkout</span>
+              <span><Zap size={13} /> Instant activation</span>
+              <span><CheckCircle size={13} /> 30-day access</span>
+            </div>
+            <button
+              type="button"
+              className="btn sd-card-pay-btn"
+              onClick={() => { setError(""); setCheckoutOpen(true); }}
+            >
+              <CreditCard size={16} />
+              Pay PKR {Number(selected.price).toLocaleString()}
+            </button>
+            <p className="muted tiny" style={{ margin: "0.65rem 0 0" }}>
+              Demo checkout — use a test card from the checkout screen. No real charges.
+            </p>
           </div>
-          <p className="muted" style={{ margin: "0.75rem 0" }}>
-            Complete your payment securely. Your plan activates immediately upon successful payment.
-          </p>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => setCheckoutOpen(true)}
-            style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontWeight: 800 }}
-          >
-            <CreditCard size={16} />
-            Pay PKR {Number(selected?.price).toLocaleString()} →
-          </button>
         </Card>
       )}
 
-      {/* JazzCash / EasyPaisa */}
       {jazzcashEnabled && (
-        <Card title="Bank Transfer" icon={Landmark}>
+        <Card title="Bank transfer" icon={Landmark}>
           {paymentNumber ? (
             <div className="sd-pay-number-box">
               <div className="sd-pay-number-label">Send payment to</div>
@@ -244,7 +279,6 @@ export default function BillingTab({ store, onGoTab }) {
           )}
 
           <form className="sd-form" style={{ marginTop: "1rem" }} onSubmit={submitManual}>
-            {/* Method pill selector */}
             <div>
               <span className="sd-field-label" style={{ display: "block", marginBottom: "0.5rem" }}>Payment method</span>
               <div className="sd-method-pills">
@@ -284,7 +318,7 @@ export default function BillingTab({ store, onGoTab }) {
             <button className="btn" type="submit" disabled={busy}
               style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
               <TrendingUp size={15} />
-              {busy ? "Submitting…" : "Send for approval →"}
+              {busy ? "Submitting…" : "Send for approval"}
             </button>
             <p className="muted tiny">
               Our team reviews submissions within a few hours and activates your plan by email.
@@ -293,7 +327,6 @@ export default function BillingTab({ store, onGoTab }) {
         </Card>
       )}
 
-      {/* Payment history */}
       <Card title="Payment history" icon={History}>
         {history.length === 0 ? (
           <EmptyState icon={History} title="No payments yet." />
@@ -334,6 +367,7 @@ export default function BillingTab({ store, onGoTab }) {
       {checkoutOpen && selected && (
         <DemoCheckout
           plan={selected}
+          demoCards={demoCards}
           onClose={handleCheckoutClose}
           onPay={payDemo}
         />

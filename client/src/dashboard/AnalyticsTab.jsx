@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, Wallet, Target, History, Calendar } from "lucide-react";
+import { BarChart3, TrendingUp, Wallet, Target, History, Calendar, Gauge } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
+import { getWidgetStatus, isPlanLapsed } from "../lib/widgetStatus";
 import PageHeader from "./ui/PageHeader";
 import Card from "./ui/Card";
 import StatCard from "./ui/StatCard";
@@ -29,11 +30,15 @@ function relTime(iso) {
   return "just now";
 }
 
-export default function AnalyticsTab({ onGoTab }) {
+export default function AnalyticsTab({ store, onGoTab, mode }) {
   const { token } = useAuth();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const hideEmbed = mode === "woo" || !!store?.wooConnected;
+  const widgetStatus = getWidgetStatus(store);
+  const planLapsed = isPlanLapsed(store);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +78,6 @@ export default function AnalyticsTab({ onGoTab }) {
 
   const maxDaily = Math.max(1, ...(data.dailyActivity || []).map((d) => d.count));
 
-  // This month count
   const now = new Date();
   const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const thisMonth = (data.dailyActivity || [])
@@ -81,14 +85,37 @@ export default function AnalyticsTab({ onGoTab }) {
     .reduce((s, d) => s + (d.count || 0), 0);
 
   const hasData = data.totalRecommendations > 0;
+  const usage = data.usage;
+  const usagePct = usage?.limit
+    ? Math.min(100, Math.round((usage.used / usage.limit) * 100))
+    : 0;
+
+  function goInstall() {
+    if (!onGoTab) return;
+    onGoTab(hideEmbed ? "store" : "embed");
+  }
 
   return (
     <>
       <PageHeader title="Analytics" description="Recommendation activity for your store." />
 
+      {planLapsed && (
+        <div className="sd-banner warn">
+          <p style={{ margin: 0 }}>
+            Your plan has expired — the widget is paused and new recommendations are blocked.
+            Upgrade from Billing to restore service.
+          </p>
+          {onGoTab && (
+            <button type="button" className="btn" onClick={() => onGoTab("billing")}>
+              View plans
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="sd-stats-grid">
-        <StatCard icon={BarChart3}   tone="blue"   label="Total recommendations" value={data.totalRecommendations} />
-        <StatCard icon={Calendar}    tone="purple"  label="This month"           value={thisMonth} />
+        <StatCard icon={BarChart3} tone="blue" label="Total recommendations" value={data.totalRecommendations} />
+        <StatCard icon={Calendar} tone="purple" label="This month" value={thisMonth} />
         <StatCard
           icon={Wallet}
           tone="green"
@@ -98,21 +125,52 @@ export default function AnalyticsTab({ onGoTab }) {
         <StatCard icon={Target} tone="amber" label="Purposes tracked" value={(data.byPurpose || []).length} />
       </div>
 
+      {usage && (
+        <Card title="Usage this period" icon={Gauge}>
+          <div className="sd-usage-meter">
+            <div className="sd-usage-header">
+              <span>
+                <strong>{usage.used}</strong>
+                <span className="muted"> / {usage.limit} recommendations per {usage.period}</span>
+              </span>
+              <Badge tone={usage.remaining === 0 ? "red" : usagePct >= 80 ? "amber" : "green"}>
+                {usage.remaining} left
+              </Badge>
+            </div>
+            <div className="sd-plan-progress-track" style={{ marginTop: "0.5rem" }}>
+              <div
+                className="sd-plan-progress-fill"
+                style={{
+                  width: `${usagePct}%`,
+                  background: usage.remaining === 0 ? "#ef4444" : usagePct >= 80 ? "#f59e0b" : undefined,
+                }}
+              />
+            </div>
+            {usage.remaining === 0 && (
+              <p className="muted tiny" style={{ margin: "0.5rem 0 0" }}>
+                Limit reached for this {usage.period}. {store?.plan === "trial" ? "Upgrade for higher limits." : "Resets automatically next period."}
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
+
       {!hasData ? (
         <Card title="No data yet">
           <EmptyState
             icon={BarChart3}
             title="No recommendations yet"
-            description="Install your widget and start getting shoppers to see analytics here."
+            description={
+              widgetStatus === "active"
+                ? "Share your store — shopper recommendations will appear here."
+                : widgetStatus === "paused"
+                ? "Your widget is paused. Upgrade your plan to start collecting data again."
+                : "Install and enable your widget to start collecting recommendation data."
+            }
           />
-          {onGoTab && (
-            <button
-              type="button"
-              className="btn"
-              style={{ marginTop: "0.75rem" }}
-              onClick={() => onGoTab("embed")}
-            >
-              Go to Install Widget →
+          {onGoTab && widgetStatus !== "paused" && (
+            <button type="button" className="btn" style={{ marginTop: "0.75rem" }} onClick={goInstall}>
+              {hideEmbed ? "Set up WooCommerce →" : "Go to Install Widget →"}
             </button>
           )}
         </Card>
@@ -173,7 +231,9 @@ export default function AnalyticsTab({ onGoTab }) {
                         </td>
                         <td>{r.purpose || "—"}</td>
                         <td>{r.budget ? `PKR ${Number(r.budget).toLocaleString()}` : "—"}</td>
-                        <td>{r.source}</td>
+                        <td>
+                          <Badge tone={r.source === "cached" ? "gray" : "blue"}>{r.source}</Badge>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

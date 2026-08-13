@@ -236,6 +236,13 @@ export default function ProductsTab({ store, mode }) {
               </option>
             ))}
           </select>
+          {!loading && products.length > 0 && (
+            <span className="muted tiny" style={{ alignSelf: "center", whiteSpace: "nowrap" }}>
+              {filtered.length === products.length
+                ? `${products.length} product${products.length === 1 ? "" : "s"}`
+                : `${filtered.length} of ${products.length}`}
+            </span>
+          )}
         </div>
 
         {loading ? (
@@ -249,11 +256,15 @@ export default function ProductsTab({ store, mode }) {
                 : "No products yet — add one or upload a CSV to get started."
             }
             action={
-              !wooLocked && (
+              !wooLocked ? (
                 <button type="button" className="btn" onClick={openCreate}>
                   <Plus size={16} strokeWidth={2.5} />
                   Add your first product
                 </button>
+              ) : (
+                <p className="muted tiny" style={{ margin: 0 }}>
+                  Connect the WooCommerce plugin from My Store, then sync your catalog.
+                </p>
               )
             }
           />

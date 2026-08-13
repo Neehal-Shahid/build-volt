@@ -2,24 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { Palette, Eye, ExternalLink, Save, Zap, ZapOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api, API_URL } from "../lib/api";
+import { getWidgetStatus, WIDGET_STATUS_LABELS, isWidgetPaused, widgetPauseHint } from "../lib/widgetStatus";
 import PageHeader from "./ui/PageHeader";
 import Card from "./ui/Card";
 import Alert from "./ui/Alert";
 
-// Calculate perceived luminance of a hex colour (0=dark, 1=bright)
-function hexLuminance(hex) {
-  const c = hex.replace("#", "");
-  const r = parseInt(c.slice(0, 2), 16) / 255;
-  const g = parseInt(c.slice(2, 4), 16) / 255;
-  const b = parseInt(c.slice(4, 6), 16) / 255;
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
+const PANEL_BG = "#FFFFFF";
+const PANEL_TEXT = "#0A1A2D";
+const PANEL_TEXT_MUTED = "#64748B";
 
 export default function WidgetSettingsTab({ store }) {
   const { token, persistSession } = useAuth();
   const [form, setForm] = useState({
     brandColor: "#2A5EE8",
-    widgetBg: "#0A1A2D",
     currency: "PKR",
     widgetTitle: "BuildBot",
     welcomeMsg: "",
@@ -30,20 +25,22 @@ export default function WidgetSettingsTab({ store }) {
   const [busyToggle, setBusyToggle] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [previewDark, setPreviewDark] = useState(true);
 
   useEffect(() => {
     if (!store) return;
     setForm({
-      brandColor:    store.brandColor    || "#2A5EE8",
-      widgetBg:      store.widgetBg      || "#0A1A2D",
-      currency:      store.currency      || "PKR",
-      widgetTitle:   store.widgetTitle   || "BuildBot",
-      welcomeMsg:    store.welcomeMsg    || "",
-      buttonText:    store.buttonText    || "Get Started",
+      brandColor: store.brandColor || "#2A5EE8",
+      currency: store.currency || "PKR",
+      widgetTitle: store.widgetTitle || "BuildBot",
+      welcomeMsg: store.welcomeMsg || "",
+      buttonText: store.buttonText || "Get Started",
       widgetEnabled: store.widgetEnabled !== false,
     });
   }, [store]);
+
+  const widgetStatus = getWidgetStatus(store);
+  const paused = isWidgetPaused(store);
+  const pauseHint = widgetPauseHint(store);
 
   async function saveAll(e) {
     e.preventDefault();
@@ -51,7 +48,11 @@ export default function WidgetSettingsTab({ store }) {
     setError("");
     setMessage("");
     try {
-      const data = await api("/api/widget-settings", { method: "PUT", token, body: form });
+      const data = await api("/api/widget-settings", {
+        method: "PUT",
+        token,
+        body: { ...form, widgetBg: PANEL_BG },
+      });
       if (data.store) persistSession(token, data.store);
       setMessage("Widget settings saved");
     } catch (err) {
@@ -61,7 +62,6 @@ export default function WidgetSettingsTab({ store }) {
     }
   }
 
-  // Toggle widget enabled separately for instant feedback
   async function toggleWidget() {
     const next = !form.widgetEnabled;
     setForm((f) => ({ ...f, widgetEnabled: next }));
@@ -70,30 +70,31 @@ export default function WidgetSettingsTab({ store }) {
     setMessage("");
     try {
       const data = await api("/api/widget-settings", {
-        method: "PUT", token,
-        body: { ...form, widgetEnabled: next },
+        method: "PUT",
+        token,
+        body: { ...form, widgetEnabled: next, widgetBg: PANEL_BG },
       });
       if (data.store) persistSession(token, data.store);
       setMessage(next ? "Widget enabled" : "Widget disabled");
     } catch (err) {
-      setForm((f) => ({ ...f, widgetEnabled: !next })); // revert
+      setForm((f) => ({ ...f, widgetEnabled: !next }));
       setError(err.message || "Save failed");
     } finally {
       setBusyToggle(false);
     }
   }
 
-  // Auto-detect text colour for the preview pane
-  const lum = hexLuminance(form.widgetBg || "#0A1A2D");
-  const textColor = lum > 0.35 ? "#111827" : "#f8fafc";
-  const textMuted  = lum > 0.35 ? "rgba(17,24,39,0.6)" : "rgba(248,250,252,0.7)";
-
-  const previewStyle = useMemo(() => ({
-    background: form.widgetBg,
-    borderRadius: 14,
-    padding: "1.25rem",
-    color: textColor,
-  }), [form.widgetBg, textColor]);
+  const previewStyle = useMemo(
+    () => ({
+      background: PANEL_BG,
+      borderRadius: 14,
+      padding: "1.25rem",
+      color: PANEL_TEXT,
+      border: "1px solid #E2E8F0",
+      boxShadow: "0 4px 24px rgba(10, 26, 45, 0.08)",
+    }),
+    [],
+  );
 
   return (
     <>
@@ -105,19 +106,36 @@ export default function WidgetSettingsTab({ store }) {
       <Alert type="success">{message}</Alert>
       <Alert type="error">{error}</Alert>
 
-      {/* Prominent enable/disable toggle */}
+      {paused && (
+        <div className="sd-banner warn">
+          <p style={{ margin: 0 }}>
+            {pauseHint || "Your widget is paused."} Shoppers cannot use it until you upgrade or renew.
+          </p>
+        </div>
+      )}
+
       <Card>
         <div className="sd-widget-toggle-row">
           <div>
             <div className="sd-widget-toggle-title">
-              {form.widgetEnabled ? <Zap size={18} color="#059669" /> : <ZapOff size={18} color="#b45309" />}
-              Widget is <strong style={{ color: form.widgetEnabled ? "#059669" : "#b45309" }}>
+              {form.widgetEnabled ? (
+                <Zap size={18} color="#059669" />
+              ) : (
+                <ZapOff size={18} color="#b45309" />
+              )}
+              Widget is{" "}
+              <strong style={{ color: form.widgetEnabled ? "#059669" : "#b45309" }}>
                 {form.widgetEnabled ? "Enabled" : "Disabled"}
               </strong>
+              <span className="muted tiny" style={{ marginLeft: "0.5rem" }}>
+                · {WIDGET_STATUS_LABELS[widgetStatus]}
+              </span>
             </div>
             <p className="muted tiny" style={{ margin: "0.2rem 0 0" }}>
               {form.widgetEnabled
-                ? "Shoppers can see and interact with your widget."
+                ? widgetStatus === "not_installed"
+                  ? "Enabled, but shoppers won't see it until you install the embed snippet on your site."
+                  : "Shoppers can see and interact with your widget."
                 : "The widget is hidden from all shoppers on your site."}
             </p>
           </div>
@@ -133,13 +151,17 @@ export default function WidgetSettingsTab({ store }) {
         </div>
         {!form.widgetEnabled && (
           <div className="sd-notice warning" style={{ marginTop: "0.75rem" }}>
-            ⚠ Your widget is disabled. Shoppers will not see it until you re-enable it.
+            Your widget is disabled. Shoppers will not see it until you re-enable it.
+          </div>
+        )}
+        {form.widgetEnabled && widgetStatus === "not_installed" && (
+          <div className="sd-notice warning" style={{ marginTop: "0.75rem" }}>
+            Install the embed snippet from the Go Live tab, then confirm installation there.
           </div>
         )}
       </Card>
 
       <div className="settings-grid">
-        {/* Appearance form */}
         <Card title="Appearance" icon={Palette}>
           <form className="sd-form" onSubmit={saveAll}>
             <div className="sd-field">
@@ -152,20 +174,9 @@ export default function WidgetSettingsTab({ store }) {
                 />
                 <code>{form.brandColor}</code>
               </div>
-              <span className="muted tiny">Used for the start button and accent highlights.</span>
-            </div>
-
-            <div className="sd-field">
-              <span className="sd-field-label">Panel background</span>
-              <div className="sd-color-field">
-                <input
-                  type="color"
-                  value={form.widgetBg}
-                  onChange={(e) => setForm((f) => ({ ...f, widgetBg: e.target.value }))}
-                />
-                <code>{form.widgetBg}</code>
-              </div>
-              <span className="muted tiny">Text color auto-adjusts for readability.</span>
+              <span className="muted tiny">
+                Used for the launcher button, CTA, and accent highlights. Panel background is always white for readability.
+              </span>
             </div>
 
             <label className="sd-field">
@@ -207,55 +218,47 @@ export default function WidgetSettingsTab({ store }) {
               />
             </label>
 
-            <button className="btn" type="submit" disabled={busy}
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            <button
+              className="btn"
+              type="submit"
+              disabled={busy}
+              style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+            >
               <Save size={15} /> {busy ? "Saving…" : "Save settings"}
             </button>
           </form>
         </Card>
 
-        {/* Live preview */}
-        <Card title="Live preview" icon={Eye}>
-          {/* Mock background toggle */}
-          <div className="sd-preview-bg-row">
-            <span className="muted tiny">Preview background:</span>
-            <button
-              type="button"
-              className={`sd-preview-bg-btn ${previewDark ? "active" : ""}`}
-              onClick={() => setPreviewDark(true)}
-            >Dark site</button>
-            <button
-              type="button"
-              className={`sd-preview-bg-btn ${!previewDark ? "active" : ""}`}
-              onClick={() => setPreviewDark(false)}
-            >Light site</button>
-          </div>
-
-          {/* Mock site + floating launcher */}
-          <div
-            className="sd-preview-site"
-            style={{ background: previewDark ? "#18181b" : "#f5f5f5" }}
-          >
+        <Card title="Preview" icon={Eye}>
+          <div className="sd-preview-site" style={{ background: "#F8FAFC" }}>
             <div className="sd-preview-site-content">
-              <div className="sd-preview-site-bar" style={{ background: previewDark ? "#27272a" : "#e4e4e7" }} />
-              <div className="sd-preview-site-bar short" style={{ background: previewDark ? "#27272a" : "#e4e4e7" }} />
-              <div className="sd-preview-site-bar" style={{ background: previewDark ? "#27272a" : "#e4e4e7" }} />
+              <div className="sd-preview-site-bar" style={{ background: "#E2E8F0" }} />
+              <div className="sd-preview-site-bar short" style={{ background: "#E2E8F0" }} />
+              <div className="sd-preview-site-bar" style={{ background: "#E2E8F0" }} />
             </div>
-            {/* Floating launcher */}
             <div className="sd-preview-launcher" style={{ background: form.brandColor }}>
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
               </svg>
             </div>
           </div>
 
-          {/* Widget panel preview */}
           <div style={{ ...previewStyle, marginTop: "0.85rem" }}>
-            <strong style={{ display: "block", marginBottom: 8, color: textColor }}>
+            <strong style={{ display: "block", marginBottom: 8, color: PANEL_TEXT }}>
               {form.widgetTitle || "BuildBot"}
             </strong>
-            <p style={{ margin: "0 0 12px", color: textMuted, lineHeight: 1.45, fontSize: "0.9rem" }}>
+            <p
+              style={{
+                margin: "0 0 12px",
+                color: PANEL_TEXT_MUTED,
+                lineHeight: 1.45,
+                fontSize: "0.9rem",
+              }}
+            >
               {form.welcomeMsg || "Welcome message will appear here…"}
             </p>
             <button
@@ -281,7 +284,13 @@ export default function WidgetSettingsTab({ store }) {
               href={`${API_URL}/widget-test?storeId=${encodeURIComponent(store?.id || "")}`}
               target="_blank"
               rel="noreferrer"
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", color: "var(--blue)", fontWeight: 700 }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                color: "var(--blue)",
+                fontWeight: 700,
+              }}
             >
               Open live test page <ExternalLink size={13} />
             </a>

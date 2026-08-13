@@ -57,7 +57,7 @@ export const NAV_GROUPS = [
 const ALL_TABS = NAV_GROUPS.flatMap((g) => g.items);
 
 export default function Dashboard() {
-  const { store, logout } = useAuth();
+  const { store, logout, refreshStore } = useAuth();
   const [tab, setTab] = useState("home");
   const [mode, setMode] = useState(() => getCatalogMode());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -89,6 +89,11 @@ export default function Dashboard() {
 
   useEffect(() => { setMenuOpen(false); }, [tab]);
 
+  useEffect(() => {
+    if (refreshStore) refreshStore().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   function goTab(id) {
     if (id === "embed" && hideEmbed) { setTab("store"); return; }
     setTab(id);
@@ -104,7 +109,7 @@ export default function Dashboard() {
       case "home":      return <OverviewTab store={store} onGoTab={goTab} />;
       case "store":     return <StoreSyncTab store={store} mode={mode} onModeChange={setMode} />;
       case "products":  return <ProductsTab store={store} mode={mode} />;
-      case "analytics": return <AnalyticsTab />;
+      case "analytics": return <AnalyticsTab store={store} onGoTab={goTab} mode={mode} />;
       case "embed":     return <EmbedTab store={store} />;
       case "settings":  return <WidgetSettingsTab store={store} />;
       case "billing":   return <BillingTab store={store} onGoTab={goTab} />;

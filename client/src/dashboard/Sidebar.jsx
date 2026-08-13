@@ -1,12 +1,43 @@
-import { X, LogOut, Sparkles, Wifi, WifiOff } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { X, LogOut, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Logo from '../landing/Logo'
+import { getWidgetStatus } from '../lib/widgetStatus'
+
+const STATUS_DOT = {
+  active: '#34d399',
+  disabled: '#f87171',
+  not_installed: '#fbbf24',
+  paused: '#f87171',
+}
+
+const STATUS_TITLE = {
+  active: 'Widget active on your site',
+  disabled: 'Widget installed but disabled',
+  not_installed: 'Widget not yet installed',
+  paused: 'Widget paused — upgrade or renew plan',
+}
 
 export default function Sidebar({ groups, tab, onSelect, store, onLogout, open, onClose }) {
   const isTrial = store?.plan === 'trial'
-  const widgetOn = store?.widgetEnabled !== false
+  const [widgetStatus, setWidgetStatus] = useState(() => getWidgetStatus(store))
 
-  // Days left on plan
+  useEffect(() => {
+    setWidgetStatus(getWidgetStatus(store))
+  }, [store])
+
+  useEffect(() => {
+    function sync() {
+      setWidgetStatus(getWidgetStatus(store))
+    }
+    window.addEventListener('storage', sync)
+    window.addEventListener('bb-widget-live-change', sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('bb-widget-live-change', sync)
+    }
+  }, [store])
+
   const planEnds = store?.planEnds || store?.trialEnds
   const daysLeft = planEnds
     ? Math.max(0, Math.ceil((new Date(planEnds) - Date.now()) / 86400000))
@@ -20,7 +51,6 @@ export default function Sidebar({ groups, tab, onSelect, store, onLogout, open, 
         role="presentation"
       />
       <aside className={`sd-sidebar ${open ? 'is-open' : ''}`}>
-        {/* Brand */}
         <div className="sd-sidebar-brand">
           <Link to="/">
             <Logo />
@@ -35,14 +65,13 @@ export default function Sidebar({ groups, tab, onSelect, store, onLogout, open, 
           </button>
         </div>
 
-        {/* Store info card */}
         <div className="sd-sidebar-store">
           <div className="sd-sidebar-store-row">
             <span className="sd-sidebar-store-name">{store?.name || 'Your store'}</span>
             <span
               className="sd-sidebar-live-dot"
-              title={widgetOn ? 'Widget live' : 'Widget disabled'}
-              style={{ background: widgetOn ? '#34d399' : '#f87171' }}
+              title={STATUS_TITLE[widgetStatus]}
+              style={{ background: STATUS_DOT[widgetStatus] }}
             />
           </div>
           <div className="sd-sidebar-store-meta">
@@ -57,7 +86,6 @@ export default function Sidebar({ groups, tab, onSelect, store, onLogout, open, 
           </div>
         </div>
 
-        {/* Grouped navigation */}
         <nav className="sd-nav" aria-label="Dashboard navigation">
           {groups.map((group) => (
             <div key={group.label}>
@@ -77,7 +105,6 @@ export default function Sidebar({ groups, tab, onSelect, store, onLogout, open, 
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="sd-sidebar-footer">
           {isTrial && (
             <div className="sd-upgrade-card">

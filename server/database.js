@@ -63,13 +63,13 @@ async function createTables() {
       active INTEGER DEFAULT 1,
       disabled INTEGER DEFAULT 0,
       email_verified INTEGER DEFAULT 0,
-      widget_enabled INTEGER DEFAULT 1,
+      widget_enabled INTEGER DEFAULT 0,
       brand_color TEXT DEFAULT '#2A5EE8',
       currency TEXT DEFAULT 'PKR',
       widget_title TEXT DEFAULT 'BuildBot',
       welcome_msg TEXT DEFAULT 'Tell us your budget and what you need the PC for — we will recommend builds from this store.',
       button_text TEXT DEFAULT 'Get Started',
-      widget_bg TEXT DEFAULT '#0A1A2D',
+      widget_bg TEXT DEFAULT '#FFFFFF',
       budget_presets TEXT DEFAULT '[50000,80000,120000,200000]',
       woo_connected INTEGER DEFAULT 0,
       plugin_secret TEXT,
@@ -182,6 +182,8 @@ async function createTables() {
     await db.execute(sql)
   }
 
+  await migrateStores()
+
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_products_store ON products(store_id)`
   )
@@ -191,6 +193,20 @@ async function createTables() {
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)`
   )
+}
+
+async function migrateStores() {
+  const columns = [
+    ['widget_last_seen', 'TEXT'],
+    ['widget_installed_at', 'TEXT'],
+  ]
+  for (const [name, type] of columns) {
+    try {
+      await db.execute(`ALTER TABLE stores ADD COLUMN ${name} ${type}`)
+    } catch {
+      // Column already exists
+    }
+  }
 }
 
 async function seedPlatformConfig() {

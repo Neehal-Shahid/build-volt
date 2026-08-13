@@ -1,25 +1,24 @@
 import { useState } from "react";
-import { Copy, Check, ExternalLink, Code2, Zap, ZapOff, ArrowRight, ListChecks } from "lucide-react";
+import { Copy, Check, ExternalLink, Code2, Zap, ZapOff, ListChecks } from "lucide-react";
 import { API_URL } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import { WIDGET_LIVE_KEY, isWidgetInstalled } from "../lib/widgetStatus";
 import PageHeader from "./ui/PageHeader";
 import Card from "./ui/Card";
 
 const STEPS = [
-  { id: 1, label: "Copy the embed snippet",                      desc: "Click the Copy button above." },
-  { id: 2, label: "Open your website's HTML editor",            desc: "Go to your site's theme or page settings." },
-  { id: 3, label: "Paste the snippet before </body>",           desc: "The widget will appear as a floating button." },
-  { id: 4, label: "Open your site and confirm the launcher",    desc: "Look for the BuildBot button at bottom-right." },
-  { id: 5, label: "Test the full widget flow",                   desc: "Click it — answer the 3 questions — get recommendations." },
+  { id: 1, label: "Copy the embed snippet", desc: "Use the Copy button below." },
+  { id: 2, label: "Paste before </body> on your site", desc: "Add it to your theme footer or page template." },
+  { id: 3, label: "Confirm the launcher appears", desc: "Open your site and look for the button at bottom-right." },
+  { id: 4, label: "Test the full widget flow", desc: "Answer the 3 questions and verify recommendations load." },
 ];
 
-function LIVE_KEY(storeId) { return `bb_widget_live_${storeId}`; }
 function STEPS_KEY(storeId) { return `bb_embed_steps_${storeId}`; }
 
 export default function EmbedTab({ store }) {
+  const { refreshStore } = useAuth();
   const [copied, setCopied] = useState(false);
-  const [isLive, setIsLive] = useState(
-    () => localStorage.getItem(LIVE_KEY(store?.id)) === "1"
-  );
+  const [isLive, setIsLive] = useState(() => isWidgetInstalled(store));
   const [checkedSteps, setCheckedSteps] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem(STEPS_KEY(store?.id)) || "[]");
@@ -27,6 +26,10 @@ export default function EmbedTab({ store }) {
   });
 
   const snippet = `<script src="${API_URL}/widget.js" data-store-id="${store?.id || "YOUR_STORE_ID"}"></script>`;
+  const serverDetected = !!(store?.widgetLastSeen || store?.widgetInstalledAt);
+  const lastSeenLabel = store?.widgetLastSeen
+    ? new Date(store.widgetLastSeen).toLocaleString()
+    : null;
 
   async function copy() {
     try {
@@ -36,10 +39,17 @@ export default function EmbedTab({ store }) {
     } catch { setCopied(false); }
   }
 
-  function toggleLive() {
-    const next = !isLive;
-    localStorage.setItem(LIVE_KEY(store?.id), next ? "1" : "0");
-    setIsLive(next);
+  function confirmInstall() {
+    localStorage.setItem(WIDGET_LIVE_KEY(store?.id), "1");
+    setIsLive(true);
+    window.dispatchEvent(new Event("bb-widget-live-change"));
+    refreshStore?.().catch(() => {});
+  }
+
+  function markOffline() {
+    localStorage.setItem(WIDGET_LIVE_KEY(store?.id), "0");
+    setIsLive(false);
+    window.dispatchEvent(new Event("bb-widget-live-change"));
   }
 
   function toggleStep(id) {
@@ -59,18 +69,40 @@ export default function EmbedTab({ store }) {
         description="Install the BuildBot widget on your store site in minutes."
       />
 
-      {/* Status banner */}
-      <div className={`sd-live-status-banner ${isLive ? "live" : "offline"}`}>
-        {isLive
-          ? <><Zap size={18} strokeWidth={2.5} /><span>Widget is <strong>Live</strong> on your site</span></>
-          : <><ZapOff size={18} strokeWidth={2.5} /><span>Widget not yet installed on your site</span></>
-        }
-        <button type="button" className="sd-live-toggle-btn" onClick={toggleLive}>
-          {isLive ? "Mark as offline" : "Mark as live"}
-        </button>
+      <div className={`sd-live-status-banner ${isLive || serverDetected ? "live" : "offline"}`}>
+        {isLive || serverDetected ? (
+          <>
+            <Zap size={18} strokeWidth={2.5} />
+            <span>
+              {serverDetected ? (
+                <>
+                  Widget <strong>detected on your site</strong>
+                  {lastSeenLabel ? ` · last seen ${lastSeenLabel}` : ""}
+                </>
+              ) : (
+                <>Installation confirmed — widget is marked as <strong>installed</strong> on your site.</>
+              )}
+            </span>
+          </>
+        ) : (
+          <>
+            <ZapOff size={18} strokeWidth={2.5} />
+            <span>
+              Widget not yet confirmed on your site. Complete the steps below, then confirm installation.
+            </span>
+          </>
+        )}
+        {isLive ? (
+          <button type="button" className="sd-live-toggle-btn" onClick={markOffline}>
+            Undo confirmation
+          </button>
+        ) : (
+          <button type="button" className="sd-live-toggle-btn primary" onClick={confirmInstall}>
+            Confirm installation
+          </button>
+        )}
       </div>
 
-      {/* Embed code */}
       <Card title="Embed snippet" icon={Code2}>
         <p className="muted" style={{ marginTop: 0 }}>
           Paste this single script tag just before the <code>&lt;/body&gt;</code> tag on every page of your store.
@@ -94,8 +126,10 @@ export default function EmbedTab({ store }) {
         </div>
       </Card>
 
-      {/* Visual installation checklist */}
       <Card title="Installation checklist" icon={ListChecks}>
+        <p className="muted tiny" style={{ margin: "0 0 0.85rem" }}>
+          Work through each step, then click <strong>Confirm installation</strong> above.
+        </p>
         <div className="sd-install-steps">
           {STEPS.map((s) => {
             const done = checkedSteps.includes(s.id);
@@ -117,21 +151,25 @@ export default function EmbedTab({ store }) {
             );
           })}
         </div>
-        {allChecked && (
+        {allChecked && !isLive && (
           <div className="sd-install-done">
-            🎉 All steps complete — your widget is ready!
+            All steps checked — click <strong>Confirm installation</strong> to update your dashboard status.
+          </div>
+        )}
+        {allChecked && isLive && (
+          <div className="sd-install-done">
+            Installation complete. Enable the widget in Widget Settings if you haven't already.
           </div>
         )}
       </Card>
 
-      {/* What happens next */}
       <Card title="What happens next">
         <div className="sd-how-grid">
           {[
-            { emoji: "🛍️", label: "Shopper visits your site",   desc: "They see the BuildBot launcher button." },
-            { emoji: "💬", label: "Widget asks 3 questions",    desc: "Purpose, budget, and preferences." },
-            { emoji: "🤖", label: "AI generates picks",         desc: "Claude AI matches products to their answers." },
-            { emoji: "📊", label: "You see analytics",          desc: "Every recommendation appears in your Analytics tab." },
+            { emoji: "🛍️", label: "Shopper visits your site", desc: "They see the BuildBot launcher button." },
+            { emoji: "💬", label: "Widget asks 3 questions", desc: "Purpose, budget, and preferences." },
+            { emoji: "🤖", label: "AI generates picks", desc: "Claude AI matches products to their answers." },
+            { emoji: "📊", label: "You see analytics", desc: "Every recommendation appears in your Analytics tab." },
           ].map((s) => (
             <div key={s.label} className="sd-how-step">
               <span className="sd-how-icon" style={{ fontSize: "1.5rem" }}>{s.emoji}</span>

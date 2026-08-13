@@ -7,6 +7,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { getCatalogMode } from "../lib/catalogMode";
+import { getWidgetStatus, isWidgetInstalled, isWidgetEnabled, isPlanLapsed, WIDGET_STATUS_LABELS, widgetStatusTone, widgetPauseHint } from "../lib/widgetStatus";
 import PageHeader from "./ui/PageHeader";
 import Card from "./ui/Card";
 import StatCard from "./ui/StatCard";
@@ -29,8 +30,25 @@ function relTime(iso) {
 export default function OverviewTab({ store, onGoTab }) {
   const { token } = useAuth();
   const [analytics, setAnalytics] = useState(null);
-  const [productCount, setProductCount] = useState(null); // null = loading
+  const [productCount, setProductCount] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [widgetStatus, setWidgetStatus] = useState(() => getWidgetStatus(store));
+
+  useEffect(() => {
+    setWidgetStatus(getWidgetStatus(store));
+  }, [store]);
+
+  useEffect(() => {
+    function syncInstallStatus() {
+      setWidgetStatus(getWidgetStatus(store));
+    }
+    window.addEventListener("storage", syncInstallStatus);
+    window.addEventListener("bb-widget-live-change", syncInstallStatus);
+    return () => {
+      window.removeEventListener("storage", syncInstallStatus);
+      window.removeEventListener("bb-widget-live-change", syncInstallStatus);
+    };
+  }, [store]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,38 +86,56 @@ export default function OverviewTab({ store, onGoTab }) {
     ? Math.max(0, Math.ceil((new Date(planEnds) - Date.now()) / 86400000))
     : null;
 
-  // Recent 7-day recs
   const weekRecs = (analytics?.dailyActivity || [])
     .slice(0, 7)
     .reduce((sum, d) => sum + (d.count || 0), 0);
 
   const recent = (analytics?.recent || []).slice(0, 5);
-  // Use live productCount from API, fall back to store.productCount if still loading
-  const hasProducts = (productCount ?? store?.productCount ?? 0) > 0;
+  const hasProducts = (productCount ?? 0) > 0;
   const wooConnected = !!store?.wooConnected;
-  const catalogModeSet = getCatalogMode() === "woo" || wooConnected || hasProducts;
-  const widgetEnabled = store?.widgetEnabled !== false;
-  // Brand color is customised if it differs from the server default
-  const DEFAULT_BRAND = "#2A5EE8";
-  const brandCustomised = !!store?.brandColor && store.brandColor.toLowerCase() !== DEFAULT_BRAND.toLowerCase();
+  const hideEmbed = getCatalogMode() === "woo" || wooConnected;
+  const widgetInstalled = isWidgetInstalled(store);
+  const widgetEnabled = isWidgetEnabled(store);
 
-  // Dynamic checklist — all conditions derived from live data
+  // Essential setup steps only — each condition is verified from live data
   const steps = [
-    { label: "Create account & verify email",               done: true },
-    { label: "Name your store",                              done: !store?.needsSetup },
-    { label: "Choose catalog mode (Manual or WooCommerce)",  done: catalogModeSet, goTo: "store" },
-    { label: "Add at least one product",                     done: hasProducts,     goTo: "products" },
-    { label: "Customize your widget appearance",             done: brandCustomised, goTo: "settings" },
-    { label: "Install widget & go live",                     done: widgetEnabled,   goTo: "embed" },
+    {
+      label: "Name your store",
+      done: !store?.needsSetup,
+      goTo: "store",
+    },
+    {
+      label: "Add products to your catalog",
+      done: hasProducts,
+      goTo: "products",
+    },
+    {
+      label: wooConnected
+        ? "Connect WooCommerce plugin"
+        : "Install widget on your site",
+      done: widgetInstalled,
+      goTo: hideEmbed ? "store" : "embed",
+    },
+    {
+      label: "Enable widget for shoppers",
+      done: widgetEnabled && widgetInstalled,
+      goTo: "settings",
+    },
   ];
 
   const completedCount = steps.filter((s) => s.done).length;
   const allDone = completedCount === steps.length;
 
+  const statusTone = widgetStatusTone(widgetStatus);
+  const planLapsed = isPlanLapsed(store);
+  const pauseHint = widgetPauseHint(store);
+
   const quickActions = [
     { label: "Widget Settings", icon: Palette, tab: "settings", desc: "Customize colors & text" },
-    { label: "Go Live",         icon: Code2,   tab: "embed",    desc: "Install on your site" },
-    { label: "View Plans",      icon: CreditCard, tab: "billing", desc: "Upgrade or renew" },
+    ...(hideEmbed
+      ? []
+      : [{ label: "Go Live", icon: Code2, tab: "embed", desc: "Install on your site" }]),
+    { label: "View Plans", icon: CreditCard, tab: "billing", desc: "Upgrade or renew" },
   ];
 
   return (
@@ -109,8 +145,22 @@ export default function OverviewTab({ store, onGoTab }) {
         description="Here's what's happening with your store today."
       />
 
-      {/* Trial / expiry banner */}
-      {isTrial && trialDays !== null && (
+      {planLapsed && (
+        <div className="sd-banner warn">
+          <div className="sd-banner-copy">
+            <Clock size={20} strokeWidth={2} />
+            <p>
+              {pauseHint || "Your plan has expired."}{" "}
+              Your widget is paused for shoppers until you upgrade.
+            </p>
+          </div>
+          <button type="button" className="btn" onClick={() => onGoTab("billing")}>
+            Upgrade now
+          </button>
+        </div>
+      )}
+
+      {isTrial && !planLapsed && trialDays !== null && (
         <div className={`sd-banner ${trialDays <= 3 ? "warn" : ""}`}>
           <div className="sd-banner-copy">
             <Clock size={20} strokeWidth={2} />
@@ -127,7 +177,6 @@ export default function OverviewTab({ store, onGoTab }) {
         </div>
       )}
 
-      {/* Stat cards */}
       <div className="sd-stats-grid">
         <StatCard
           icon={TrendingUp}
@@ -143,9 +192,9 @@ export default function OverviewTab({ store, onGoTab }) {
         />
         <StatCard
           icon={Zap}
-          tone={widgetEnabled ? "green" : "amber"}
+          tone={statusTone}
           label="Widget Status"
-          value={widgetEnabled ? "Live" : "Disabled"}
+          value={WIDGET_STATUS_LABELS[widgetStatus]}
         />
         <StatCard
           icon={CreditCard}
@@ -161,10 +210,11 @@ export default function OverviewTab({ store, onGoTab }) {
         />
       </div>
 
-      {/* Setup checklist */}
       {!allDone && (
-        <Card title={`Setup checklist (${completedCount}/${steps.length})`}>
-          {/* Progress bar */}
+        <Card title={`Get started (${completedCount}/${steps.length})`}>
+          <p className="muted tiny" style={{ margin: "0 0 0.85rem" }}>
+            Complete these steps to start receiving shopper recommendations.
+          </p>
           <div className="sd-checklist-progress">
             <div
               className="sd-checklist-bar"
@@ -191,15 +241,14 @@ export default function OverviewTab({ store, onGoTab }) {
         </Card>
       )}
 
-      {/* No recs yet → how it works */}
       {!loading && analytics?.totalRecommendations === 0 && (
         <Card title="How BuildBot works">
           <div className="sd-how-grid">
             {[
-              { icon: Package, label: "1. Add products",  desc: "Upload your catalog manually or sync from WooCommerce." },
-              { icon: Palette, label: "2. Customize widget", desc: "Set your brand colors, welcome message, and CTA text." },
-              { icon: Code2,   label: "3. Install on your site", desc: "Paste one script tag before </body> — takes 30 seconds." },
-              { icon: Users,   label: "4. Get recommendations", desc: "Shoppers answer 3 questions and get AI-powered product picks." },
+              { icon: Package, label: "1. Add products", desc: "Upload your catalog manually or sync from WooCommerce." },
+              { icon: Palette, label: "2. Customize widget", desc: "Set your brand color, welcome message, and CTA text." },
+              { icon: Code2, label: "3. Install on your site", desc: "Paste one script tag before </body> — takes 30 seconds." },
+              { icon: Users, label: "4. Get recommendations", desc: "Shoppers answer 3 questions and get AI-powered product picks." },
             ].map((s) => (
               <div key={s.label} className="sd-how-step">
                 <span className="sd-how-icon"><s.icon size={20} strokeWidth={1.75} /></span>
@@ -211,7 +260,6 @@ export default function OverviewTab({ store, onGoTab }) {
         </Card>
       )}
 
-      {/* Quick actions */}
       <div className="sd-quick-actions">
         {quickActions.map((a) => (
           <button
@@ -230,7 +278,6 @@ export default function OverviewTab({ store, onGoTab }) {
         ))}
       </div>
 
-      {/* Recent activity */}
       <Card title="Recent activity" icon={History}>
         {loading ? (
           <SkeletonRows count={3} />
@@ -238,7 +285,11 @@ export default function OverviewTab({ store, onGoTab }) {
           <EmptyState
             icon={History}
             title="No shopper activity yet"
-            description="Install your widget to start collecting recommendations."
+            description={
+              widgetStatus === "active"
+                ? "Share your store link — recommendations will appear here."
+                : "Install and enable your widget to start collecting recommendations."
+            }
           />
         ) : (
           <div className="sd-table-wrap">

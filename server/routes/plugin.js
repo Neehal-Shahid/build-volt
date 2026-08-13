@@ -22,6 +22,7 @@ async function markWooConnected(storeId) {
     sql: `UPDATE stores SET
             woo_connected = 1,
             woo_last_sync = datetime('now'),
+            widget_installed_at = COALESCE(widget_installed_at, datetime('now')),
             catalog_touched_at = datetime('now'),
             updated_at = datetime('now')
           WHERE id = ?`,
@@ -126,7 +127,11 @@ router.post('/plugin/ping', authPlugin, async (req, res) => {
   try {
     const store = req.pluginStore
     await getDb().execute({
-      sql: `UPDATE stores SET woo_connected = 1, updated_at = datetime('now') WHERE id = ?`,
+      sql: `UPDATE stores
+            SET woo_connected = 1,
+                widget_installed_at = COALESCE(widget_installed_at, datetime('now')),
+                updated_at = datetime('now')
+            WHERE id = ?`,
       args: [store.id],
     })
     res.json({

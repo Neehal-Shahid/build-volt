@@ -181,8 +181,24 @@ export function publicStore(store) {
     })(),
     wooConnected: !!store.woo_connected,
     wooLastSync: store.woo_last_sync || null,
+    widgetLastSeen: store.widget_last_seen || null,
+    widgetInstalledAt: store.widget_installed_at || null,
     marketingOptIn: !!store.marketing_opt_in,
     needsSetup: String(store.id || '').startsWith('temp-'),
+    trialExpired: (() => {
+      if (store.plan !== 'trial' || !store.trial_ends) return false
+      return new Date(store.trial_ends).getTime() < Date.now()
+    })(),
+    planExpired: (() => {
+      if (store.plan === 'trial' || !store.plan_ends) return false
+      return new Date(store.plan_ends).getTime() < Date.now()
+    })(),
+    widgetInstalled: (() => {
+      if (store.woo_connected || store.widget_installed_at) return true
+      if (!store.widget_last_seen) return false
+      const age = Date.now() - new Date(store.widget_last_seen).getTime()
+      return Number.isFinite(age) && age < 30 * 24 * 60 * 60 * 1000
+    })(),
   }
 }
 

@@ -1,9 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
-import { Menu, Clock, ChevronDown, UserCircle, LifeBuoy, LogOut, CreditCard, Zap, ZapOff } from 'lucide-react'
+import { Menu, Clock, ChevronDown, UserCircle, LifeBuoy, LogOut, CreditCard, Zap, ZapOff, PauseCircle } from 'lucide-react'
+import { getWidgetStatus, WIDGET_STATUS_LABELS } from '../lib/widgetStatus'
 
 export default function Topbar({ title, store, onOpenMenu, onGoAccount, onGoHelp, onGoBilling, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [widgetStatus, setWidgetStatus] = useState(() => getWidgetStatus(store))
   const ref = useRef(null)
+
+  useEffect(() => {
+    setWidgetStatus(getWidgetStatus(store))
+  }, [store])
+
+  useEffect(() => {
+    function sync() {
+      setWidgetStatus(getWidgetStatus(store))
+    }
+    window.addEventListener('storage', sync)
+    window.addEventListener('bb-widget-live-change', sync)
+    return () => {
+      window.removeEventListener('storage', sync)
+      window.removeEventListener('bb-widget-live-change', sync)
+    }
+  }, [store])
 
   useEffect(() => {
     function onDocClick(e) {
@@ -18,7 +36,15 @@ export default function Topbar({ title, store, onOpenMenu, onGoAccount, onGoHelp
   const trialDays = store?.trialEnds
     ? Math.max(0, Math.ceil((new Date(store.trialEnds) - Date.now()) / 86400000))
     : null
-  const widgetOn = store?.widgetEnabled !== false
+
+  const statusClass =
+    widgetStatus === 'active'
+      ? 'live'
+      : widgetStatus === 'disabled'
+        ? 'offline'
+        : widgetStatus === 'paused'
+          ? 'paused'
+          : 'pending'
 
   return (
     <header className="sd-topbar">
@@ -29,15 +55,18 @@ export default function Topbar({ title, store, onOpenMenu, onGoAccount, onGoHelp
       <h1 className="sd-topbar-title">{title}</h1>
 
       <div className="sd-topbar-right">
-        {/* Widget live/offline pill */}
-        <span className={`sd-topbar-widget-status ${widgetOn ? 'live' : 'offline'}`}>
-          {widgetOn
-            ? <><Zap size={12} strokeWidth={2.5} /> Live</>
-            : <><ZapOff size={12} strokeWidth={2.5} /> Offline</>
-          }
+        <span className={`sd-topbar-widget-status ${statusClass}`}>
+          {widgetStatus === 'active' ? (
+            <><Zap size={12} strokeWidth={2.5} /> {WIDGET_STATUS_LABELS.active}</>
+          ) : widgetStatus === 'disabled' ? (
+            <><ZapOff size={12} strokeWidth={2.5} /> {WIDGET_STATUS_LABELS.disabled}</>
+          ) : widgetStatus === 'paused' ? (
+            <><PauseCircle size={12} strokeWidth={2.5} /> {WIDGET_STATUS_LABELS.paused}</>
+          ) : (
+            <><ZapOff size={12} strokeWidth={2.5} /> {WIDGET_STATUS_LABELS.not_installed}</>
+          )}
         </span>
 
-        {/* Trial countdown */}
         {isTrial && trialDays !== null && (
           <button
             type="button"
@@ -50,7 +79,6 @@ export default function Topbar({ title, store, onOpenMenu, onGoAccount, onGoHelp
           </button>
         )}
 
-        {/* User menu */}
         <div className="sd-user-menu" ref={ref}>
           <button type="button" className="sd-user-chip" onClick={() => setMenuOpen((v) => !v)}>
             <span className="sd-avatar">{initial}</span>
