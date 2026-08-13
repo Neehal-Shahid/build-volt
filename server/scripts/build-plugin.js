@@ -15,6 +15,7 @@ const zipPath = path.join(outDir, 'buildbot-woocommerce.zip')
 const updatePath = path.join(outDir, 'plugin-update.json')
 
 const VERSION = '1.0.0'
+const apiBase = process.env.PUBLIC_API_URL || process.env.APP_URL || 'http://127.0.0.1:3001'
 
 function ensureDir(d) {
   fs.mkdirSync(d, { recursive: true })
@@ -130,17 +131,43 @@ if (!fs.existsSync(pluginDir)) {
   process.exit(1)
 }
 
+// Patch the PHP file with the real API base URL
+const phpSrc = path.join(pluginDir, 'buildbot-woocommerce.php')
+const phpContent = fs.readFileSync(phpSrc, 'utf8')
+const patchedPhp = phpContent.replace(
+  /define\('BUILDBOT_API_BASE',\s*'[^']*'\);/,
+  `define('BUILDBOT_API_BASE', '${apiBase}');`
+)
+
+// Write patched plugin to a temp dir for zipping
+const tmpDir = path.join(outDir, '_tmp_plugin')
+if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true })
+fs.mkdirSync(tmpDir, { recursive: true })
+// Copy all plugin files, using patched PHP
+for (const name of fs.readdirSync(pluginDir)) {
+  const src = path.join(pluginDir, name)
+  const dst = path.join(tmpDir, name)
+  if (name === 'buildbot-woocommerce.php') {
+    fs.writeFileSync(dst, patchedPhp, 'utf8')
+  } else {
+    fs.copyFileSync(src, dst)
+  }
+}
+
 try {
-  zipFolderStoreOnly(pluginDir, zipPath, 'buildbot-woocommerce')
-  console.log('[build-plugin] Wrote', zipPath)
+  zipFolderStoreOnly(tmpDir, zipPath, 'buildbot-woocommerce')
+  console.log('[build-plugin] Wrote', zipPath, '(API base:', apiBase + ')')
 } catch (err) {
   console.warn('[build-plugin] Pure zip failed, trying PowerShell…', err.message)
-  const ps = `Compress-Archive -Path '${pluginDir}\\*' -DestinationPath '${zipPath}' -Force`
+  const ps = `Compress-Archive -Path '${tmpDir}\\*' -DestinationPath '${zipPath}' -Force`
   const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8' })
   if (r.status !== 0) {
     console.error(r.stderr || r.stdout)
     process.exit(1)
   }
+} finally {
+  // Clean up temp dir
+  try { fs.rmSync(tmpDir, { recursive: true }) } catch {}
 }
 
 const update = {

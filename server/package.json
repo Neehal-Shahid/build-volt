@@ -15,6 +15,7 @@
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
+    "express-rate-limit": "^7.5.0",
     "multer": "^2.2.0"
   }
 }

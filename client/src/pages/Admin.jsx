@@ -20,6 +20,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAdminAuth } from "../context/AdminAuthContext";
+import { api } from "../lib/api";
 import AuthLayout from "../auth/AuthLayout";
 import TextField from "../auth/TextField";
 import PasswordField from "../auth/PasswordField";
@@ -88,6 +89,17 @@ export default function Admin() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("overview");
+
+  // Forgot password flow
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotStep, setForgotStep] = useState('request'); // 'request' | 'reset' | 'done'
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotNewPw, setForgotNewPw] = useState('');
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotDevHint, setForgotDevHint] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -129,6 +141,54 @@ export default function Admin() {
     );
   }
 
+  async function onForgotRequest(e) {
+    e.preventDefault();
+    setForgotBusy(true);
+    setForgotError('');
+    setForgotDevHint('');
+    try {
+      const r = await api('/api/admin/forgot-password', {
+        method: 'POST',
+        body: { email: forgotEmail },
+      });
+      if (r.devHint) setForgotDevHint(r.devHint);
+      setForgotStep('reset');
+    } catch (err) {
+      setForgotError(err.message || 'Request failed');
+    } finally {
+      setForgotBusy(false);
+    }
+  }
+
+  async function onForgotReset(e) {
+    e.preventDefault();
+    setForgotBusy(true);
+    setForgotError('');
+    try {
+      await api('/api/admin/reset-password', {
+        method: 'POST',
+        body: { email: forgotEmail, otp: forgotOtp, newPassword: forgotNewPw },
+      });
+      setForgotStep('done');
+      setForgotMessage('Password updated successfully. You can now log in.');
+    } catch (err) {
+      setForgotError(err.message || 'Reset failed');
+    } finally {
+      setForgotBusy(false);
+    }
+  }
+
+  function resetForgotFlow() {
+    setShowForgot(false);
+    setForgotStep('request');
+    setForgotEmail('');
+    setForgotOtp('');
+    setForgotNewPw('');
+    setForgotError('');
+    setForgotMessage('');
+    setForgotDevHint('');
+  }
+
   if (!isAdmin) {
     return (
       <AuthLayout
@@ -144,32 +204,124 @@ export default function Admin() {
           </div>
         }
       >
-        <form className="auth-form" onSubmit={onLogin}>
-          <Alert type="error">{error}</Alert>
+        {showForgot ? (
+          <div className="auth-form">
+            <button
+              type="button"
+              className="btn btn-ghost auth-secondary"
+              onClick={resetForgotFlow}
+              style={{ alignSelf: 'flex-start', marginBottom: '0.75rem', padding: '0.25rem 0' }}
+            >
+              ← Back to login
+            </button>
 
-          <TextField
-            label="Email"
-            icon={Mail}
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={setEmail}
-            required
-          />
+            {forgotStep === 'request' && (
+              <form onSubmit={onForgotRequest} style={{ display: 'contents' }}>
+                <Alert type="error">{forgotError}</Alert>
+                <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 700 }}>Reset admin password</h3>
+                <TextField
+                  label="Admin email"
+                  icon={Mail}
+                  type="email"
+                  autoComplete="email"
+                  value={forgotEmail}
+                  onChange={setForgotEmail}
+                  required
+                />
+                <SubmitButton busy={forgotBusy} busyLabel="Sending…">
+                  Send reset code
+                </SubmitButton>
+                {forgotDevHint && (
+                  <div className="auth-dev-hint" style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)', wordBreak: 'break-all' }}>
+                    <strong>Dev hint:</strong> {forgotDevHint}
+                  </div>
+                )}
+              </form>
+            )}
 
-          <PasswordField
-            label="Password"
-            autoComplete="current-password"
-            value={password}
-            onChange={setPassword}
-            required
-          />
+            {forgotStep === 'reset' && (
+              <form onSubmit={onForgotReset} style={{ display: 'contents' }}>
+                <Alert type="error">{forgotError}</Alert>
+                <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 700 }}>Enter reset code</h3>
+                {forgotDevHint && (
+                  <div className="auth-dev-hint" style={{ marginBottom: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)', wordBreak: 'break-all' }}>
+                    <strong>Dev hint:</strong> {forgotDevHint}
+                  </div>
+                )}
+                <TextField
+                  label="Reset code (OTP)"
+                  icon={Mail}
+                  type="text"
+                  autoComplete="one-time-code"
+                  value={forgotOtp}
+                  onChange={setForgotOtp}
+                  required
+                />
+                <PasswordField
+                  label="New password"
+                  autoComplete="new-password"
+                  value={forgotNewPw}
+                  onChange={setForgotNewPw}
+                  required
+                />
+                <SubmitButton busy={forgotBusy} busyLabel="Updating…">
+                  <ShieldCheck size={17} strokeWidth={2.25} />
+                  Update password
+                </SubmitButton>
+              </form>
+            )}
 
-          <SubmitButton busy={busy} busyLabel="Signing in…">
-            <ShieldCheck size={17} strokeWidth={2.25} />
-            Log in
-          </SubmitButton>
-        </form>
+            {forgotStep === 'done' && (
+              <div>
+                <Alert type="success">{forgotMessage}</Alert>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={resetForgotFlow}
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  Back to login
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <form className="auth-form" onSubmit={onLogin}>
+            <Alert type="error">{error}</Alert>
+
+            <TextField
+              label="Email"
+              icon={Mail}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={setEmail}
+              required
+            />
+
+            <PasswordField
+              label="Password"
+              autoComplete="current-password"
+              value={password}
+              onChange={setPassword}
+              required
+            />
+
+            <SubmitButton busy={busy} busyLabel="Signing in…">
+              <ShieldCheck size={17} strokeWidth={2.25} />
+              Log in
+            </SubmitButton>
+
+            <button
+              type="button"
+              className="btn btn-ghost auth-secondary"
+              onClick={() => { setShowForgot(true); setForgotEmail(email); setError(''); }}
+              style={{ marginTop: '0.25rem' }}
+            >
+              Forgot password?
+            </button>
+          </form>
+        )}
       </AuthLayout>
     );
   }

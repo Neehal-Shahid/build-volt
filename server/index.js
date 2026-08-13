@@ -4,6 +4,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import express from 'express'
 import cors from 'cors'
+import rateLimit from 'express-rate-limit'
 import { initDB, countTable, getPlatformConfig } from './database.js'
 import { cleanupOldPending } from './lib/auth.js'
 import authRoutes from './routes/auth.js'
@@ -86,6 +87,30 @@ app.get('/', async (_req, res) => {
     res.status(500).json({ ok: false, error: err.message })
   }
 })
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, error: 'Too many attempts. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+const recommendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  message: { success: false, error: 'Too many recommendation requests. Try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+app.use('/api/login', authLimiter)
+app.use('/api/signup', authLimiter)
+app.use('/api/forgot-password', authLimiter)
+app.use('/api/resend-verification', authLimiter)
+app.use('/api/admin/login', authLimiter)
+app.use('/api/admin/forgot-password', authLimiter)
+app.use('/api/recommend', recommendLimiter)
 
 app.use('/api', authRoutes)
 app.use('/api', storeRoutes)

@@ -20,6 +20,7 @@ export default function WidgetSettingsTab({ store }) {
     welcomeMsg: "",
     buttonText: "Get Started",
     widgetEnabled: true,
+    budgetPresets: [50000, 80000, 120000, 200000],
   });
   const [busy, setBusy] = useState(false);
   const [busyToggle, setBusyToggle] = useState(false);
@@ -35,6 +36,7 @@ export default function WidgetSettingsTab({ store }) {
       welcomeMsg: store.welcomeMsg || "",
       buttonText: store.buttonText || "Get Started",
       widgetEnabled: store.widgetEnabled !== false,
+      budgetPresets: store.budgetPresets || [50000, 80000, 120000, 200000],
     });
   }, [store]);
 
@@ -216,6 +218,24 @@ export default function WidgetSettingsTab({ store }) {
                 maxLength={40}
                 required
               />
+            </label>
+
+            <label className="sd-field">
+              <span className="sd-field-label">Budget presets (PKR)</span>
+              <input
+                value={(form.budgetPresets || []).join(', ')}
+                onChange={(e) => {
+                  const nums = e.target.value
+                    .split(',')
+                    .map(s => Number(s.trim()))
+                    .filter(n => Number.isFinite(n) && n > 0);
+                  if (nums.length > 0) setForm(f => ({ ...f, budgetPresets: nums }));
+                }}
+                placeholder="50000, 80000, 120000, 200000"
+              />
+              <span className="muted tiny">
+                Comma-separated PKR amounts shown as quick-select chips in the widget.
+              </span>
             </label>
 
             <button

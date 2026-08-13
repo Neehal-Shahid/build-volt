@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Database, Trash2, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Database, Trash2, RefreshCw, CheckCircle, AlertTriangle, Info } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import { logAdminActivity } from './activityLog'
@@ -73,6 +73,14 @@ export default function AdminDbHealth() {
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
           <RefreshCw size={15} /> Refresh
         </button>
+      </div>
+
+      <div className="ad-notice info" style={{ marginBottom: '1.25rem' }}>
+        <Info size={14} style={{ flex: 'none' }} />
+        <span>
+          Drip emails run automatically only when <code>CRON_ENABLED=true</code> is set in the
+          server environment. Use <strong>Run drip now</strong> in Communications to trigger manually.
+        </span>
       </div>
 
       {loading ? (
