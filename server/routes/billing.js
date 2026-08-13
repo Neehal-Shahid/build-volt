@@ -100,6 +100,7 @@ router.get('/plans', async (_req, res) => {
       trialDays: Number(config.trial_days || 14),
       trialDailyLimit: Number(config.trial_daily_limit || 3),
       paymentNumber: config.payment_number || '',
+      supportEmail: process.env.ADMIN_EMAIL || '',
       ...modeFlags(mode),
       demoCards: DEMO_TEST_CARDS.map((c) => ({
         number: c.number,

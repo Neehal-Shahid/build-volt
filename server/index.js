@@ -70,10 +70,11 @@ app.get('/', async (_req, res) => {
     res.json({
       ok: true,
       service: 'buildbot-api',
-      phase: 11,
+      phase: 12,
       time: new Date().toISOString(),
       testMode: process.env.TEST_MODE === 'true',
       emailTestMode: process.env.EMAIL_TEST_MODE === 'true',
+      cronEnabled: process.env.CRON_ENABLED === 'true',
       db: {
         admins,
         stores,

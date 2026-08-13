@@ -93,6 +93,14 @@ export async function runDripOnce() {
             `Your BuildBot trial ends tomorrow (${store.trial_ends}). Upgrade now — your widget will pause when the trial ends.`,
             `<p>Your trial ends <strong>tomorrow</strong>. Upgrade in Billing to keep your widget live.</p>`
           )
+        } else if (daysLeft === 0) {
+          await sendDrip(
+            store,
+            'trial_expired_0d',
+            'Your BuildBot trial has ended',
+            `Hi ${store.name || 'there'}, your BuildBot trial ended today. Your widget is now paused. Upgrade from Billing to restore it.`,
+            `<p>Your BuildBot trial has ended. Your widget is now <strong>paused</strong> for shoppers.</p><p>Upgrade from <strong>Billing</strong> to restore it immediately.</p>`
+          )
         }
       }
 
@@ -128,7 +136,7 @@ export async function runDripOnce() {
       // Plan lapsed 1 / 3 / 7 days
       if (store.plan !== 'trial' && store.plan_ends) {
         const daysSinceEnd = daysBetween(store.plan_ends)
-        if ([1, 3, 7].includes(daysSinceEnd)) {
+        if ([0, 1, 3, 7].includes(daysSinceEnd)) {
           await sendDrip(
             store,
             `plan_expired_${daysSinceEnd}d`,

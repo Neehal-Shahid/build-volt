@@ -9,6 +9,8 @@
   --bb-radius: 16px;
 }
 
+/* ── Launcher button (D2: SVG icon, no emoji) ─────────────────────────────── */
+
 #bb-launcher {
   position: fixed;
   right: 20px;
@@ -20,18 +22,29 @@
   border-radius: 50%;
   background: var(--bb-brand);
   color: #fff;
-  font-size: 22px;
-  box-shadow: 0 12px 30px rgba(10, 26, 45, 0.2);
+  box-shadow: 0 8px 24px rgba(42, 94, 232, 0.4), 0 2px 6px rgba(10, 26, 45, 0.15);
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+  animation: bb-launcher-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes bb-launcher-pop {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
 }
 
 #bb-launcher:hover {
-  transform: scale(1.05);
-  filter: brightness(1.05);
+  transform: scale(1.1);
+  box-shadow: 0 12px 32px rgba(42, 94, 232, 0.5), 0 4px 10px rgba(10, 26, 45, 0.18);
 }
+
+#bb-launcher:active {
+  transform: scale(0.96);
+}
+
+/* ── Panel ────────────────────────────────────────────────────────────────── */
 
 #bb-panel {
   position: fixed;
@@ -44,16 +57,25 @@
   background: var(--bb-bg);
   color: var(--bb-text);
   border-radius: var(--bb-radius);
-  box-shadow: 0 24px 60px rgba(10, 26, 45, 0.15);
+  box-shadow: 0 24px 60px rgba(10, 26, 45, 0.15), 0 4px 16px rgba(10, 26, 45, 0.08);
   border: 1px solid var(--bb-border);
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   display: none;
+  transform-origin: bottom right;
 }
 
 #bb-panel.bb-open {
   display: flex;
   flex-direction: column;
+  animation: bb-panel-in 0.22s cubic-bezier(0.34, 1.4, 0.64, 1) both;
 }
+
+@keyframes bb-panel-in {
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
 
 .bb-header {
   display: flex;
@@ -62,10 +84,12 @@
   gap: 0.75rem;
   padding: 1rem 1rem 0.75rem;
   border-bottom: 1px solid var(--bb-border);
+  flex: none;
 }
 
 .bb-header strong {
   font-size: 1.05rem;
+  font-weight: 700;
   color: var(--bb-text);
 }
 
@@ -73,11 +97,14 @@
   border: 0;
   background: var(--bb-panel);
   color: var(--bb-muted);
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 1rem;
+  display: grid;
+  place-items: center;
+  transition: background 0.12s, color 0.12s;
+  flex: none;
 }
 
 .bb-close:hover {
@@ -85,27 +112,53 @@
   color: var(--bb-text);
 }
 
+/* ── Body + D1: screen transition ────────────────────────────────────────── */
+
 .bb-body {
   padding: 1rem;
   flex: 1;
+  position: relative;
 }
+
+/* Fade + slide-up animation on screen change */
+@keyframes bb-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bb-screen-enter {
+  animation: bb-enter 0.2s ease both;
+}
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
 
 .bb-muted {
   color: var(--bb-muted);
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 0 0 1rem;
+  font-size: 0.9rem;
 }
 
 .bb-title {
   margin: 0 0 0.5rem;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--bb-text);
+  line-height: 1.3;
 }
+
+.bb-tiny {
+  font-size: 0.75rem;
+  color: var(--bb-muted);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
 
 .bb-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
   width: 100%;
   border: 0;
   border-radius: 10px;
@@ -113,12 +166,22 @@
   background: var(--bb-brand);
   color: #fff;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.93rem;
   cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+  font-family: inherit;
+}
+
+.bb-btn:hover {
+  filter: brightness(1.08);
+}
+
+.bb-btn:active {
+  transform: scale(0.98);
 }
 
 .bb-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -126,18 +189,32 @@
   background: var(--bb-panel);
   color: var(--bb-text);
   border: 1px solid var(--bb-border);
-  margin-top: 0.6rem;
+  margin-top: 0.55rem;
 }
 
-.bb-note {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  border-radius: 10px;
-  background: var(--bb-panel);
-  color: var(--bb-muted);
-  font-size: 0.85rem;
-  border: 1px solid var(--bb-border);
+.bb-btn-ghost:hover {
+  filter: none;
+  background: var(--bb-border);
 }
+
+.bb-btn-icon {
+  font-size: 0.84rem;
+  padding: 0.65rem 1rem;
+}
+
+/* Result action row (Share + Print side by side) */
+.bb-result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+
+.bb-result-actions .bb-btn-ghost {
+  margin-top: 0;
+}
+
+/* ── Input ────────────────────────────────────────────────────────────────── */
 
 .bb-input {
   width: 100%;
@@ -145,16 +222,27 @@
   margin-bottom: 0.75rem;
   padding: 0.75rem 0.85rem;
   border-radius: 10px;
-  border: 1px solid var(--bb-border);
+  border: 1.5px solid var(--bb-border);
   background: #fff;
   color: var(--bb-text);
   font: inherit;
+  font-size: 0.93rem;
+  transition: border-color 0.15s;
 }
 
 .bb-input:focus {
-  outline: 2px solid rgba(42, 94, 232, 0.25);
+  outline: none;
   border-color: var(--bb-brand);
+  box-shadow: 0 0 0 3px rgba(42, 94, 232, 0.12);
 }
+
+.bb-input.bb-input-error {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  animation: bb-shake 0.4s ease;
+}
+
+/* ── Chips ────────────────────────────────────────────────────────────────── */
 
 .bb-chips {
   display: flex;
@@ -164,14 +252,25 @@
 }
 
 .bb-chip {
-  border: 1px solid var(--bb-border);
+  border: 1.5px solid var(--bb-border);
   background: #fff;
   color: var(--bb-text);
   border-radius: 999px;
-  padding: 0.4rem 0.7rem;
+  padding: 0.38rem 0.75rem;
   font: inherit;
   font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s, transform 0.1s;
+}
+
+.bb-chip:hover {
+  border-color: var(--bb-brand);
+  background: rgba(42, 94, 232, 0.05);
+}
+
+.bb-chip:active {
+  transform: scale(0.96);
 }
 
 .bb-chip-active {
@@ -180,16 +279,56 @@
   color: #fff;
 }
 
+/* ── Shake animation (used on validation instead of alert()) ─────────────── */
+
+@keyframes bb-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+
+.bb-shake {
+  animation: bb-shake 0.4s ease;
+}
+
+/* ── Loading screen spinner ───────────────────────────────────────────────── */
+
+.bb-loading-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.bb-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--bb-border);
+  border-top-color: var(--bb-brand);
+  border-radius: 50%;
+  animation: bb-spin 0.75s linear infinite;
+  flex: none;
+}
+
+@keyframes bb-spin {
+  to { transform: rotate(360deg); }
+}
+
 .bb-steps {
   list-style: none;
-  margin: 0;
+  margin: 0.75rem 0 0;
   padding: 0;
+  width: 100%;
 }
 
 .bb-step {
   padding: 0.55rem 0;
   color: var(--bb-muted);
   border-bottom: 1px solid var(--bb-border);
+  font-size: 0.88rem;
+  transition: color 0.3s, font-weight 0.3s;
 }
 
 .bb-step.on {
@@ -197,16 +336,18 @@
   font-weight: 700;
 }
 
+/* ── Result cards ─────────────────────────────────────────────────────────── */
+
 .bb-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
 }
 
 .bb-card {
   text-align: left;
-  border: 1px solid var(--bb-border);
+  border: 1.5px solid var(--bb-border);
   background: #fff;
   color: var(--bb-text);
   border-radius: 12px;
@@ -216,36 +357,46 @@
   flex-direction: column;
   gap: 0.2rem;
   font: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
 }
 
 .bb-card:hover {
   border-color: var(--bb-brand);
-  box-shadow: 0 4px 12px rgba(42, 94, 232, 0.08);
+  box-shadow: 0 4px 14px rgba(42, 94, 232, 0.1);
+  transform: translateY(-1px);
+}
+
+.bb-card:active {
+  transform: translateY(0);
 }
 
 .bb-card-tag {
   color: var(--bb-muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .bb-card-price {
   font-weight: 700;
+  font-size: 0.95rem;
   color: var(--bb-brand);
 }
 
-.bb-tiny {
-  font-size: 0.75rem;
-  color: var(--bb-muted);
-}
+/* ── Modal (parts detail) ─────────────────────────────────────────────────── */
 
 .bb-modal {
   position: fixed;
   inset: 0;
   z-index: 2147483001;
-  background: rgba(10, 26, 45, 0.45);
+  background: rgba(10, 26, 45, 0.5);
   display: grid;
   place-items: center;
   padding: 1rem;
+  animation: bb-modal-fade 0.18s ease both;
+}
+
+@keyframes bb-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .bb-modal[hidden] {
@@ -259,38 +410,119 @@
   background: var(--bb-bg);
   color: var(--bb-text);
   border-radius: 14px;
-  padding: 1rem;
+  padding: 1.1rem;
   border: 1px solid var(--bb-border);
-  box-shadow: 0 24px 60px rgba(10, 26, 45, 0.2);
+  box-shadow: 0 24px 60px rgba(10, 26, 45, 0.22);
+  animation: bb-modal-slide 0.22s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+
+@keyframes bb-modal-slide {
+  from { transform: translateY(16px) scale(0.97); }
+  to   { transform: translateY(0) scale(1); }
 }
 
 .bb-modal-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
 }
 
 .bb-parts {
   margin: 0 0 0.75rem;
-  padding-left: 1.1rem;
+  padding-left: 0;
+  list-style: none;
 }
 
 .bb-parts li {
-  margin: 0.35rem 0;
+  margin: 0;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--bb-border);
+  font-size: 0.88rem;
   line-height: 1.4;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
+
+.bb-parts li:last-child {
+  border-bottom: none;
+}
+
+/* ── D4: Share overlay (clipboard fallback) ───────────────────────────────── */
+
+.bb-share-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--bb-bg);
+  border-radius: inherit;
+  padding: 1rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  animation: bb-enter 0.15s ease both;
+}
+
+.bb-share-text {
+  flex: 1;
+  resize: none;
+  border: 1.5px solid var(--bb-border);
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: var(--bb-text);
+  background: var(--bb-panel);
+  min-height: 120px;
+}
+
+/* ── Note box ─────────────────────────────────────────────────────────────── */
+
+.bb-note {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: var(--bb-panel);
+  color: var(--bb-muted);
+  font-size: 0.84rem;
+  border: 1px solid var(--bb-border);
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────────── */
 
 @media (max-width: 480px) {
   #bb-panel {
-    right: 12px;
-    left: 12px;
+    right: 10px;
+    left: 10px;
     width: auto;
-    bottom: 80px;
+    bottom: 78px;
+    border-radius: 14px;
   }
 
   #bb-launcher {
     right: 14px;
     bottom: 14px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .bb-result-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  #bb-launcher,
+  #bb-panel.bb-open,
+  .bb-screen-enter,
+  .bb-modal,
+  .bb-modal-card,
+  .bb-spinner {
+    animation: none !important;
+    transition: none !important;
   }
 }

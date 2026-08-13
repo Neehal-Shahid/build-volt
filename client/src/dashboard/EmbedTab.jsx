@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Check, ExternalLink, Code2, Zap, ZapOff, ListChecks } from "lucide-react";
 import { API_URL } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +19,13 @@ export default function EmbedTab({ store }) {
   const { refreshStore } = useAuth();
   const [copied, setCopied] = useState(false);
   const [isLive, setIsLive] = useState(() => isWidgetInstalled(store));
+
+  // Re-sync whenever the server reports a change (e.g. after refreshStore() resolves
+  // or if the parent re-renders with a freshly-fetched store object).
+  useEffect(() => {
+    setIsLive(isWidgetInstalled(store));
+  }, [store?.widgetInstalledAt, store?.widgetLastSeen, store?.wooConnected]);
+
   const [checkedSteps, setCheckedSteps] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem(STEPS_KEY(store?.id)) || "[]");
@@ -77,7 +84,10 @@ export default function EmbedTab({ store }) {
               {serverDetected ? (
                 <>
                   Widget <strong>detected on your site</strong>
-                  {lastSeenLabel ? ` · last seen ${lastSeenLabel}` : ""}
+                  {store?.widgetInstalledAt && (
+                    <> · first seen {new Date(store.widgetInstalledAt).toLocaleDateString()}</>
+                  )}
+                  {lastSeenLabel ? ` · last active ${lastSeenLabel}` : ""}
                 </>
               ) : (
                 <>Installation confirmed — widget is marked as <strong>installed</strong> on your site.</>

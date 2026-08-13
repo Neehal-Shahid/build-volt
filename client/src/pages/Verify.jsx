@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Link,
   useNavigate,
   useSearchParams,
   useLocation,
 } from "react-router-dom";
-import { Mail, ShieldCheck } from "lucide-react";
+import { Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
+import { getPlatformInfo } from "../lib/platformInfo";
 import AuthLayout from "../auth/AuthLayout";
 import TextField from "../auth/TextField";
 import OtpInput from "../auth/OtpInput";
@@ -38,6 +39,14 @@ export default function Verify() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [linkStatus, setLinkStatus] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const [resendCount, setResendCount] = useState(0);
+  const [supportEmail, setSupportEmail] = useState("");
+  const cooldownRef = useRef(null);
+
+  useEffect(() => {
+    getPlatformInfo().then((info) => setSupportEmail(info.supportEmail));
+  }, []);
 
   useEffect(() => {
     const token = params.get("token");
@@ -81,6 +90,23 @@ export default function Verify() {
     }
   }
 
+  // Clean up the countdown interval on unmount
+  useEffect(() => () => clearInterval(cooldownRef.current), []);
+
+  function startCooldown(seconds = 60) {
+    setCooldown(seconds);
+    clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
   async function resend() {
     setError("");
     setBusy(true);
@@ -91,6 +117,8 @@ export default function Verify() {
       });
       setMessage(data.message);
       setDevHint(data.devHint || null);
+      setResendCount((c) => c + 1);
+      startCooldown(60);
     } catch (err) {
       setError(err.message || "Could not resend");
     } finally {
@@ -156,10 +184,22 @@ export default function Verify() {
           className="btn btn-ghost auth-secondary"
           type="button"
           onClick={resend}
-          disabled={busy || !email}
+          disabled={busy || !email || cooldown > 0}
         >
-          Resend code
+          <RefreshCw size={15} strokeWidth={2.25} />
+          {cooldown > 0 ? `Resend in ${cooldown}s…` : "Resend code"}
         </button>
+
+        {resendCount >= 3 && (
+          <p className="auth-hint">
+            Still not getting the code? Check your spam folder
+            {supportEmail ? (
+              <> or <a href={`mailto:${supportEmail}`}>contact support</a></>
+            ) : (
+              " or contact support"
+            )}.
+          </p>
+        )}
       </form>
     </AuthLayout>
   );

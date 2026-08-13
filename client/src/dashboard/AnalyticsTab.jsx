@@ -180,34 +180,85 @@ export default function AnalyticsTab({ store, onGoTab, mode }) {
             {(data.byPurpose || []).length === 0 ? (
               <EmptyState icon={TrendingUp} title="No purpose data yet." />
             ) : (
-              <div className="sd-steps">
-                {data.byPurpose.map((row) => (
-                  <div key={row.purpose} className="sd-step-item" style={{ cursor: "default" }}>
-                    <span className="sd-step-label" style={{ fontWeight: 700 }}>{row.purpose}</span>
-                    <Badge tone="blue">{row.count}</Badge>
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="bars">
+                  {(() => {
+                    const maxPurpose = Math.max(1, ...data.byPurpose.map(r => r.count))
+                    return data.byPurpose.map((row) => (
+                      <div className="bar-row" key={row.purpose}>
+                        <span className="bar-label" style={{ minWidth: 100 }}>{row.purpose}</span>
+                        <div className="bar-track">
+                          <div
+                            className="bar-fill"
+                            style={{ width: `${(row.count / maxPurpose) * 100}%`, background: 'var(--blue)' }}
+                          />
+                        </div>
+                        <span className="bar-count">{row.count}</span>
+                      </div>
+                    ))
+                  })()}
+                </div>
+                <p className="muted tiny" style={{ margin: '0.75rem 0 0' }}>
+                  Total: <strong>{data.byPurpose.reduce((s, r) => s + r.count, 0)}</strong> recommendations across {data.byPurpose.length} purpose{data.byPurpose.length !== 1 ? 's' : ''}
+                </p>
+              </>
             )}
           </Card>
 
-          <Card title="Daily activity (14 days)" icon={BarChart3}>
+          <Card title="Daily activity — last 14 days" icon={BarChart3}>
             {(data.dailyActivity || []).length === 0 ? (
               <EmptyState icon={BarChart3} title="No recent activity yet." />
             ) : (
-              <div className="bars">
-                {data.dailyActivity.map((d) => (
-                  <div className="bar-row" key={d.day}>
-                    <span className="bar-label">{formatDay(d.day)}</span>
-                    <div className="bar-track">
-                      <div className="bar-fill" style={{ width: `${(d.count / maxDaily) * 100}%` }} />
+              <>
+                <p className="muted tiny" style={{ margin: '0 0 0.75rem' }}>
+                  Peak: <strong>{maxDaily}</strong> recommendation{maxDaily !== 1 ? 's' : ''} in a day
+                </p>
+                <div className="bars">
+                  {data.dailyActivity.map((d) => (
+                    <div className="bar-row" key={d.day}>
+                      <span className="bar-label">{formatDay(d.day)}</span>
+                      <div className="bar-track">
+                        <div
+                          className="bar-fill"
+                          style={{ width: `${(d.count / maxDaily) * 100}%` }}
+                          title={`${d.count} recommendation${d.count !== 1 ? 's' : ''}`}
+                        />
+                      </div>
+                      <span className="bar-count">{d.count}</span>
                     </div>
-                    <span className="bar-count">{d.count}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </Card>
+
+          {data.recent && data.recent.length > 0 && (() => {
+            const buckets = [
+              { label: 'Under 50k',   count: data.recent.filter(r => r.budget < 50000).length },
+              { label: '50k – 100k', count: data.recent.filter(r => r.budget >= 50000 && r.budget <= 100000).length },
+              { label: '100k – 200k', count: data.recent.filter(r => r.budget > 100000 && r.budget <= 200000).length },
+              { label: 'Over 200k',  count: data.recent.filter(r => r.budget > 200000).length },
+            ].filter(b => b.count > 0)
+            if (!buckets.length) return null
+            return (
+              <Card title="Budget distribution (recent)" icon={Wallet}>
+                <div className="bars">
+                  {(() => {
+                    const maxB = Math.max(1, ...buckets.map(b => b.count))
+                    return buckets.map(b => (
+                      <div className="bar-row" key={b.label}>
+                        <span className="bar-label" style={{ minWidth: 100 }}>{b.label}</span>
+                        <div className="bar-track">
+                          <div className="bar-fill" style={{ width: `${(b.count / maxB) * 100}%`, background: '#10b981' }} />
+                        </div>
+                        <span className="bar-count">{b.count}</span>
+                      </div>
+                    ))
+                  })()}
+                </div>
+              </Card>
+            )
+          })()}
 
           <Card title="Recent recommendations" icon={History}>
             {(data.recent || []).length === 0 ? (

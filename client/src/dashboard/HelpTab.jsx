@@ -69,8 +69,8 @@ export default function HelpTab() {
     setBusy(true);
     setError(""); setOk("");
     try {
-      await api("/api/support", { method: "POST", token, body: { subject, message } });
-      setOk("Ticket submitted — we'll get back to you by email within 24 hours.");
+      const res = await api("/api/support", { method: "POST", token, body: { subject, message } });
+      setOk(`Ticket #${res.ticketId} submitted — we'll reply to your email within 24 hours.`);
       setSubject(""); setMessage("");
       await load();
     } catch (err) {
@@ -100,6 +100,10 @@ export default function HelpTab() {
           Can't find your answer above? Send us a message and we'll reply within{" "}
           <strong>24 hours</strong>.
         </p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', padding: '0.65rem 0.85rem', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, marginBottom: '1rem', fontSize: '0.84rem', color: '#1e40af' }}>
+          <MessagesSquare size={15} style={{ flex: 'none', marginTop: 1 }} />
+          <span>You'll receive a confirmation email immediately. We typically reply within <strong>24 hours</strong>. Check your ticket status below after submitting.</span>
+        </div>
         <Alert type="success">{ok}</Alert>
         <Alert type="error">{error}</Alert>
         <form className="sd-form" onSubmit={submit}>
@@ -133,11 +137,23 @@ export default function HelpTab() {
               <tbody>
                 {tickets.map((t) => (
                   <tr key={t.id}>
-                    <td>{t.subject}</td>
+                    <td>
+                      <strong>{t.subject}</strong>
+                      {t.message && (
+                        <div className="muted tiny" style={{ marginTop: '0.15rem' }}>
+                          {t.message.length > 80 ? t.message.slice(0, 80) + '\u2026' : t.message}
+                        </div>
+                      )}
+                    </td>
                     <td>
                       <Badge tone={t.status === "closed" ? "gray" : t.status === "open" ? "blue" : "amber"}>
                         {t.status}
                       </Badge>
+                      {t.status === "pending" && (
+                        <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: '0.2rem', fontWeight: 600 }}>
+                          ↩ Admin replied
+                        </div>
+                      )}
                     </td>
                     <td>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
                   </tr>
