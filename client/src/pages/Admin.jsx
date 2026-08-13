@@ -83,7 +83,7 @@ const NAV_GROUPS = [
 const ALL_TABS = NAV_GROUPS.flatMap((g) => g.items);
 
 export default function Admin() {
-  const { isAdmin, booting, admin, login, logout } = useAdminAuth();
+  const { isAdmin, booting, admin, login, logout, token } = useAdminAuth();
   const [email, setEmail] = useState("admin@buildbot.local");
   const [password, setPassword] = useState("Admin123!");
   const [error, setError] = useState("");
@@ -119,6 +119,16 @@ export default function Admin() {
   useEffect(() => {
     setMenuOpen(false);
   }, [tab]);
+
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Re-fetch pending payment count on mount and after every tab switch
+  useEffect(() => {
+    if (!isAdmin) return;
+    api('/api/admin/payments?status=pending', { token })
+      .then(r => setPendingCount((r.payments || []).length))
+      .catch(() => {});
+  }, [isAdmin, tab]);
 
   async function onLogin(e) {
     e.preventDefault();
@@ -397,6 +407,24 @@ export default function Admin() {
                 >
                   <item.icon size={17} strokeWidth={2} />
                   {item.label}
+                  {item.id === 'payments' && pendingCount > 0 && (
+                    <span style={{
+                      marginLeft: 'auto',
+                      background: '#ef4444',
+                      color: '#fff',
+                      borderRadius: '999px',
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      minWidth: 18,
+                      height: 18,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 4px',
+                    }}>
+                      {pendingCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

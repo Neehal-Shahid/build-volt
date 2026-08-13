@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { CreditCard, CheckCircle, XCircle, Clock, Filter } from 'lucide-react'
+import { CreditCard, CheckCircle, XCircle, Clock, Filter, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import { logAdminActivity } from './activityLog'
@@ -34,6 +34,8 @@ export default function AdminPayments() {
   const [counts, setCounts] = useState({})
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
+  const [rejectTarget, setRejectTarget] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -71,13 +73,19 @@ export default function AdminPayments() {
     finally { setBusyId(null) }
   }
 
-  async function reject(id) {
-    const reason = window.prompt('Rejection reason (optional):') || ''
-    setBusyId(id)
+  function reject(id) {
+    const payment = payments.find(p => p.id === id)
+    setRejectTarget({ id: payment.id, storeName: payment.storeName, storeEmail: payment.storeEmail, plan: payment.plan, amount: payment.amount })
+    setRejectReason('')
+  }
+
+  async function confirmReject() {
+    setBusyId(rejectTarget.id)
     try {
-      await api('/api/admin/reject-payment', { method: 'POST', token, body: { paymentId: id, reason } })
-      logAdminActivity('reject_payment', String(id))
+      await api('/api/admin/reject-payment', { method: 'POST', token, body: { paymentId: rejectTarget.id, reason: rejectReason } })
+      logAdminActivity('reject_payment', String(rejectTarget.id))
       toast('Payment rejected', 'success')
+      setRejectTarget(null)
       await load()
     } catch (err) { toast(err.message, 'error') }
     finally { setBusyId(null) }
@@ -206,6 +214,45 @@ export default function AdminPayments() {
           </div>
         )}
       </div>
+      {rejectTarget && (
+        <div className="modal-backdrop" onClick={() => setRejectTarget(null)}>
+          <div className="card-form modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem' }}>Reject payment</h3>
+              <button type="button" onClick={() => setRejectTarget(null)}
+                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p className="muted tiny" style={{ marginBottom: '1rem' }}>
+              Store: <strong>{rejectTarget.storeName || rejectTarget.storeId}</strong> · 
+              Plan: <strong>{rejectTarget.plan}</strong> · 
+              PKR <strong>{Number(rejectTarget.amount).toLocaleString()}</strong>
+            </p>
+            <label className="sd-field">
+              <span className="sd-field-label">Reason (optional)</span>
+              <textarea
+                rows={3}
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="e.g. Transaction ID not found, amount mismatch..."
+                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+              />
+            </label>
+            <div className="actions" style={{ marginTop: '1rem' }}>
+              <button className="btn" type="button"
+                style={{ background: '#b91c1c' }}
+                disabled={busyId === rejectTarget.id}
+                onClick={confirmReject}>
+                {busyId === rejectTarget.id ? 'Rejecting…' : 'Confirm rejection'}
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setRejectTarget(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

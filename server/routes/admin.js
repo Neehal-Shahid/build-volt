@@ -266,21 +266,31 @@ router.get('/admin/stores', authAdmin, async (req, res) => {
     const q = String(req.query.q || '')
       .trim()
       .toLowerCase()
+    const page = Math.max(0, Number(req.query.page || 0))
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit || 50)))
+    const offset = page * limit
     const db = getDb()
+    const countResult = await db.execute(
+      q
+        ? { sql: `SELECT COUNT(*) AS c FROM stores WHERE lower(id) LIKE ? OR lower(email) LIKE ? OR lower(name) LIKE ?`, args: [`%${q}%`, `%${q}%`, `%${q}%`] }
+        : { sql: `SELECT COUNT(*) AS c FROM stores` }
+    )
+    const total = Number(countResult.rows[0]?.c || 0)
     let result
     if (q) {
       result = await db.execute({
         sql: `SELECT * FROM stores
               WHERE lower(id) LIKE ? OR lower(email) LIKE ? OR lower(name) LIKE ?
-              ORDER BY created_at DESC LIMIT 200`,
-        args: [`%${q}%`, `%${q}%`, `%${q}%`],
+              ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+        args: [`%${q}%`, `%${q}%`, `%${q}%`, limit, offset],
       })
     } else {
-      result = await db.execute(
-        `SELECT * FROM stores ORDER BY created_at DESC LIMIT 200`,
-      )
+      result = await db.execute({
+        sql: `SELECT * FROM stores ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+        args: [limit, offset],
+      })
     }
-    res.json({ success: true, stores: result.rows.map(mapStoreRow) })
+    res.json({ success: true, stores: result.rows.map(mapStoreRow), total, page, limit })
   } catch (err) {
     console.error('[admin stores]', err)
     res.status(500).json({ success: false, error: 'Could not load stores' })
@@ -455,28 +465,35 @@ router.post('/admin/set-drip-paused', authAdmin, async (req, res) => {
 router.get('/admin/payments', authAdmin, async (req, res) => {
   try {
     const status = String(req.query.status || 'all').toLowerCase()
+    const page = Math.max(0, Number(req.query.page || 0))
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit || 50)))
+    const offset = page * limit
     const db = getDb()
+    const isFiltered = status === 'pending' || status === 'approved' || status === 'rejected'
+    const countResult = await db.execute(
+      isFiltered
+        ? { sql: `SELECT COUNT(*) AS c FROM payments WHERE status = ?`, args: [status] }
+        : { sql: `SELECT COUNT(*) AS c FROM payments` }
+    )
+    const total = Number(countResult.rows[0]?.c || 0)
     let result
-    if (
-      status === 'pending' ||
-      status === 'approved' ||
-      status === 'rejected'
-    ) {
+    if (isFiltered) {
       result = await db.execute({
         sql: `SELECT p.*, s.email AS store_email, s.name AS store_name
               FROM payments p
               LEFT JOIN stores s ON s.id = p.store_id
               WHERE p.status = ?
-              ORDER BY p.id DESC LIMIT 200`,
-        args: [status],
+              ORDER BY p.id DESC LIMIT ? OFFSET ?`,
+        args: [status, limit, offset],
       })
     } else {
-      result = await db.execute(
-        `SELECT p.*, s.email AS store_email, s.name AS store_name
-         FROM payments p
-         LEFT JOIN stores s ON s.id = p.store_id
-         ORDER BY p.id DESC LIMIT 200`,
-      )
+      result = await db.execute({
+        sql: `SELECT p.*, s.email AS store_email, s.name AS store_name
+              FROM payments p
+              LEFT JOIN stores s ON s.id = p.store_id
+              ORDER BY p.id DESC LIMIT ? OFFSET ?`,
+        args: [limit, offset],
+      })
     }
     res.json({
       success: true,
@@ -485,6 +502,9 @@ router.get('/admin/payments', authAdmin, async (req, res) => {
         storeEmail: p.store_email || '',
         storeName: p.store_name || '',
       })),
+      total,
+      page,
+      limit,
     })
   } catch (err) {
     console.error('[admin payments]', err)

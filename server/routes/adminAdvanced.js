@@ -346,6 +346,42 @@ router.post('/admin/support-tickets/:id/status', authAdmin, async (req, res) => 
   }
 })
 
+router.post('/admin/support-tickets/:id/reply', authAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id)
+    const reply = String(req.body.reply || '').trim().slice(0, 4000)
+    if (!reply) {
+      return res.status(400).json({ success: false, error: 'Reply message is required' })
+    }
+    const ticket = await getDb().execute({
+      sql: `SELECT * FROM support_tickets WHERE id = ? LIMIT 1`,
+      args: [id],
+    })
+    const t = ticket.rows[0]
+    if (!t) return res.status(404).json({ success: false, error: 'Ticket not found' })
+
+    // Send reply email to store owner
+    await sendEmail({
+      to: t.email,
+      subject: `Re: ${t.subject}`,
+      text: reply,
+      html: `<p>${reply.replace(/\n/g, '<br/>')}</p><hr/><p style="color:#64748b;font-size:0.85em">This is a reply to your BuildBot support ticket: "${t.subject}"</p>`,
+      template: 'support_reply',
+    })
+
+    // Update ticket status to pending (awaiting store response)
+    await getDb().execute({
+      sql: `UPDATE support_tickets SET status = 'pending', updated_at = datetime('now') WHERE id = ?`,
+      args: [id],
+    })
+
+    res.json({ success: true, message: `Reply sent to ${t.email}` })
+  } catch (err) {
+    console.error('[ticket reply]', err)
+    res.status(500).json({ success: false, error: 'Could not send reply' })
+  }
+})
+
 // Hard-delete a single support ticket (admin only)
 router.delete('/admin/support-tickets/:id', authAdmin, async (req, res) => {
   try {
@@ -489,12 +525,23 @@ router.get('/admin/revenue', authAdmin, async (_req, res) => {
     const approved = await db.execute(
       `SELECT COALESCE(SUM(amount), 0) AS s FROM payments WHERE status = 'approved'`
     )
+    const monthly = await db.execute(
+      `SELECT
+         strftime('%Y-%m', created_at) AS month,
+         COALESCE(SUM(amount), 0) AS total
+       FROM payments
+       WHERE status = 'approved'
+         AND created_at >= datetime('now', '-6 months')
+       GROUP BY strftime('%Y-%m', created_at)
+       ORDER BY month ASC`
+    )
     res.json({
       success: true,
       mrr,
       prices,
       paidByPlan: byPlan,
       totalApprovedRevenue: Number(approved.rows[0]?.s || 0),
+      monthlyRevenue: monthly.rows.map(r => ({ month: r.month, total: Number(r.total) })),
       atRisk: atRisk.rows.map((s) => ({
         id: s.id,
         name: s.name,

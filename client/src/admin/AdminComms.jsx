@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   MessageSquare, Send, Radio, Play, CheckCircle, Ticket,
-  Mail, RefreshCw, Trash2, Info, AlertTriangle, X, Clock
+  Mail, RefreshCw, Trash2, Info, AlertTriangle, X, Clock, Reply
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
@@ -45,6 +45,11 @@ export default function AdminComms() {
 
   // Drip result
   const [dripResult, setDripResult] = useState(null)
+
+  // Ticket reply
+  const [replyTarget, setReplyTarget] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [replyBusy, setReplyBusy] = useState(false)
 
   async function refresh() {
     try {
@@ -134,6 +139,25 @@ export default function AdminComms() {
       toast(`Drip done — sent ${res.result?.sent ?? 0}, skipped ${res.result?.skipped ?? 0}`, 'success')
     } catch (err) { toast(err.message, 'error') }
     finally { setBusy(false) }
+  }
+
+  async function sendReply() {
+    if (!replyText.trim()) return
+    setReplyBusy(true)
+    try {
+      await api(`/api/admin/support-tickets/${replyTarget}/reply`, {
+        method: 'POST', token, body: { reply: replyText }
+      })
+      logAdminActivity('ticket_reply', String(replyTarget))
+      toast('Reply sent', 'success')
+      setReplyTarget(null)
+      setReplyText('')
+      await loadTickets()
+    } catch (err) {
+      toast(err.message, 'error')
+    } finally {
+      setReplyBusy(false)
+    }
   }
 
   async function setTicketStatus(id, status) {
@@ -317,6 +341,10 @@ export default function AdminComms() {
                     </td>
                     <td>
                       <div className="sd-row-actions">
+                        <button type="button" className="sd-icon-btn" title="Reply by email"
+                          onClick={() => { setReplyTarget(t.id); setReplyText('') }}>
+                          <Reply size={13} />
+                        </button>
                         {t.status !== 'open' && (
                           <button type="button" className="sd-icon-btn" title="Reopen"
                             onClick={() => setTicketStatus(t.id, 'open')}>
@@ -405,6 +433,30 @@ export default function AdminComms() {
           </div>
         )}
       </div>
+      {replyTarget !== null && (
+        <div className="modal-backdrop" onClick={() => setReplyTarget(null)}>
+          <div className="card-form modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem' }}>Reply to ticket #{replyTarget}</h3>
+              <button type="button" onClick={() => setReplyTarget(null)}
+                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <label className="sd-field">
+              <span className="sd-field-label">Your reply</span>
+              <textarea rows={5} value={replyText} onChange={e => setReplyText(e.target.value)}
+                placeholder="Type your reply to the store owner..." style={{ width: '100%', boxSizing: 'border-box' }} />
+            </label>
+            <div className="actions" style={{ marginTop: '0.75rem' }}>
+              <button className="btn" type="button" disabled={replyBusy || !replyText.trim()} onClick={sendReply}>
+                {replyBusy ? 'Sending…' : 'Send reply'}
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setReplyTarget(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -90,6 +90,30 @@ export default function AdminRevenue() {
             </div>
           </div>
 
+          {/* Monthly Revenue Chart */}
+          {data?.monthlyRevenue && data.monthlyRevenue.length > 0 && (
+            <div className="sd-card" style={{ marginBottom: '1.25rem' }}>
+              <div className="sd-card-title">
+                <TrendingUp size={17} />
+                Monthly Revenue (last 6 months)
+              </div>
+              <div className="bars">
+                {(() => {
+                  const maxVal = Math.max(1, ...data.monthlyRevenue.map(m => m.total))
+                  return data.monthlyRevenue.map(m => (
+                    <div className="bar-row" key={m.month}>
+                      <span className="bar-label">{m.month}</span>
+                      <div className="bar-track">
+                        <div className="bar-fill" style={{ width: `${(m.total / maxVal) * 100}%` }} />
+                      </div>
+                      <span className="bar-count">PKR {Number(m.total).toLocaleString()}</span>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </div>
+          )}
+
           <div className="sd-card">
             <div className="sd-card-title">
               <AlertTriangle size={17} />
