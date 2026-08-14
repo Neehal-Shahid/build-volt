@@ -1,5 +1,5 @@
 import { getDb } from './database.js'
-import { sendEmail } from './email.js'
+import { sendEmail, emailShell } from './email.js'
 
 async function alreadySent(storeId, emailType) {
   const r = await getDb().execute({
@@ -83,7 +83,7 @@ export async function runDripOnce() {
             'trial_ending_3d',
             'Your BuildBot trial ends in 3 days',
             `Hi ${store.name || 'there'}, your trial ends on ${store.trial_ends}. Upgrade in Billing to keep your widget live.`,
-            `<p>Your trial ends in <strong>3 days</strong>. Your widget will pause when the trial ends — upgrade in Billing to stay live.</p>`
+            emailShell(`<h1>Your trial ends in 3 days</h1><p>Your BuildBot widget will pause when the trial ends. Upgrade now to keep it live.</p><a class="btn" href="${(process.env.APP_URL||'https://build-volt.vercel.app')+'/dashboard'}">Upgrade in Billing</a>`)
           )
         } else if (daysLeft === 1) {
           await sendDrip(
@@ -91,7 +91,7 @@ export async function runDripOnce() {
             'trial_ending_1d',
             'Your BuildBot trial ends tomorrow',
             `Your BuildBot trial ends tomorrow (${store.trial_ends}). Upgrade now — your widget will pause when the trial ends.`,
-            `<p>Your trial ends <strong>tomorrow</strong>. Upgrade in Billing to keep your widget live.</p>`
+            emailShell(`<h1>Your trial ends tomorrow</h1><p>Upgrade today to avoid any interruption to your widget.</p><a class="btn" href="${(process.env.APP_URL||'https://build-volt.vercel.app')+'/dashboard'}">Upgrade now</a>`)
           )
         } else if (daysLeft === 0) {
           await sendDrip(
@@ -99,7 +99,7 @@ export async function runDripOnce() {
             'trial_expired_0d',
             'Your BuildBot trial has ended',
             `Hi ${store.name || 'there'}, your BuildBot trial ended today. Your widget is now paused. Upgrade from Billing to restore it.`,
-            `<p>Your BuildBot trial has ended. Your widget is now <strong>paused</strong> for shoppers.</p><p>Upgrade from <strong>Billing</strong> to restore it immediately.</p>`
+            emailShell(`<h1>Your BuildBot trial has ended</h1><p>Your widget is now <strong>paused</strong> for shoppers. Upgrade from Billing to restore it immediately.</p><a class="btn" href="${(process.env.APP_URL||'https://build-volt.vercel.app')+'/dashboard'}">Restore my widget</a>`)
           )
         }
       }
@@ -117,7 +117,7 @@ export async function runDripOnce() {
             'onboarding_day4',
             'Add your first products to BuildBot',
             'You signed up 4 days ago but have no products yet. Upload a CSV or add parts to start recommending builds.',
-            `<p>Add products (CSV or manual) so shoppers can get builds.</p>`
+            emailShell(`<h1>Add your first products</h1><p>You signed up 4 days ago but haven't added any products yet. Upload a CSV or connect WooCommerce so BuildBot can recommend builds.</p><a class="btn" href="${(process.env.APP_URL||'https://build-volt.vercel.app')+'/dashboard'}">Add products</a>`)
           )
         }
       }
@@ -129,7 +129,7 @@ export async function runDripOnce() {
           'onboarding_day10',
           'Need help getting BuildBot live?',
           'It has been 10 days since you joined BuildBot. Reply via Help if you need a hand with embed or WooCommerce.',
-          `<p>Need help going live? Open Help in your dashboard.</p>`
+          emailShell(`<h1>Need help going live?</h1><p>It's been 10 days since you joined BuildBot. If you're stuck on the embed or WooCommerce connection, open the Help tab in your dashboard — we reply within 24 hours.</p><a class="btn" href="${(process.env.APP_URL||'https://build-volt.vercel.app')+'/dashboard'}">Open Help</a>`)
         )
       }
 
@@ -142,7 +142,7 @@ export async function runDripOnce() {
             `plan_expired_${daysSinceEnd}d`,
             'Your BuildBot plan has expired',
             `Your ${store.plan} plan ended on ${store.plan_ends}. Renew from Billing to restore limits.`,
-            `<p>Your plan expired. Renew from <strong>Billing</strong>.</p>`
+            emailShell(`<h1>Your BuildBot plan has expired</h1><p>Your <strong>${store.plan}</strong> plan ended on ${store.plan_ends}. Renew from Billing to restore widget limits.</p><a class="btn" href="${(process.env.APP_URL||'https://build-volt.vercel.app')+'/dashboard'}">Renew plan</a>`)
           )
         }
       }
@@ -176,7 +176,7 @@ export async function runDripOnce() {
           to: adminEmail,
           subject: `${stale.rows.length} stale pending payment(s)`,
           text: `Pending >6h:\n${lines}`,
-          html: `<p>${stale.rows.length} payment(s) pending over 6 hours.</p><pre>${lines}</pre>`,
+          html: emailShell(`<h1>${stale.rows.length} payment(s) pending over 6 hours</h1><pre style="background:#F1F5F9;padding:1rem;border-radius:8px;font-size:0.85rem;overflow:auto">${lines}</pre>`),
           template: type,
         })
         // Patch meta with key for dedup — sendEmail already logged; insert a marker row

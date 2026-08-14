@@ -47,6 +47,18 @@ export default function Footer() {
             </li>
           </ul>
         </div>
+
+        <div className="lp-footer-col">
+          <h4>Legal</h4>
+          <ul>
+            <li>
+              <Link to="/terms">Terms of Service</Link>
+            </li>
+            <li>
+              <Link to="/privacy">Privacy Policy</Link>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div className="lp-container lp-footer-bottom">

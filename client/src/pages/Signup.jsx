@@ -27,10 +27,15 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
+    if (!tosAccepted) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.')
+      return
+    }
     setBusy(true);
     try {
       const data = await signup(email, password);
@@ -91,6 +96,21 @@ export default function Signup() {
           />
           <PasswordStrength password={password} />
         </div>
+
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.875rem', color: '#475569', cursor: 'pointer', marginTop: '0.25rem' }}>
+          <input
+            type="checkbox"
+            checked={tosAccepted}
+            onChange={e => setTosAccepted(e.target.checked)}
+            style={{ marginTop: '2px', flexShrink: 0, accentColor: '#2A5EE8' }}
+          />
+          <span>
+            I agree to the{' '}
+            <Link to="/terms" target="_blank" className="auth-inline-link">Terms of Service</Link>
+            {' '}and{' '}
+            <Link to="/privacy" target="_blank" className="auth-inline-link">Privacy Policy</Link>
+          </span>
+        </label>
 
         <SubmitButton busy={busy} busyLabel="Creating account…">
           Create account

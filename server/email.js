@@ -1,5 +1,30 @@
 import { getDb } from './database.js'
 
+export function emailShell(bodyHtml) {
+  const appUrl = process.env.APP_URL || 'https://build-volt.vercel.app'
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{margin:0;background:#F8FAFC;font-family:system-ui,-apple-system,sans-serif;color:#0A1A2D}
+    .wrapper{max-width:560px;margin:2rem auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0}
+    .header{background:linear-gradient(135deg,#0A1A2D,#1a3050);padding:1.5rem 2rem}
+    .logo{color:#fff;font-size:1.4rem;font-weight:800;letter-spacing:-0.02em}
+    .logo span{color:#2A5EE8}
+    .body{padding:2rem}
+    h1{font-size:1.25rem;font-weight:700;margin:0 0 0.75rem}
+    p{font-size:0.95rem;line-height:1.6;color:#334155;margin:0 0 1rem}
+    .btn{display:inline-block;background:#2A5EE8;color:#fff;text-decoration:none;padding:0.75rem 1.5rem;border-radius:8px;font-weight:600;font-size:0.95rem;margin:0.5rem 0 1rem}
+    .code{background:#F1F5F9;border-radius:8px;padding:1rem 1.5rem;font-size:1.8rem;font-weight:800;letter-spacing:0.2em;color:#0A1A2D;text-align:center;margin:1rem 0}
+    .note{font-size:0.82rem;color:#64748B;margin-top:0.5rem}
+    .footer{padding:1rem 2rem;background:#F8FAFC;border-top:1px solid #E2E8F0;font-size:0.8rem;color:#94A3B8;text-align:center}
+    .footer a{color:#94A3B8}
+  </style></head>
+  <body><div class="wrapper">
+    <div class="header"><div class="logo">Build<span>Bot</span></div></div>
+    <div class="body">${bodyHtml}</div>
+    <div class="footer">BuildBot &nbsp;&middot;&nbsp; <a href="${appUrl}">${appUrl.replace('https://', '')}</a> &nbsp;&middot;&nbsp; You're receiving this because you signed up for BuildBot.</div>
+  </div></body></html>`
+}
+
 /**
  * Email sender for Phase 3+.
  * Without RESEND_API_KEY: logs to console + email_send_log (dev-friendly).
@@ -91,17 +116,30 @@ export function verificationEmailContent({ appUrl, token, otp }) {
     '',
     'This code expires in 24 hours.',
   ].join('\n')
-  const html = `<p>Welcome to BuildBot!</p>
-<p>Your verification code: <strong>${otp}</strong></p>
-<p><a href="${link}">Verify your email</a></p>
-<p>Expires in 24 hours.</p>`
+  const html = emailShell(`
+  <h1>Verify your email</h1>
+  <p>Welcome to BuildBot! Use the code below to verify your account.</p>
+  <div class="code">${otp}</div>
+  <p>Or click the button to verify automatically:</p>
+  <a class="btn" href="${link}">Verify my email</a>
+  <p class="note">This code expires in 24 hours. If you didn't sign up for BuildBot, you can ignore this email.</p>
+`)
   return { subject, text, html, link }
 }
 
 export function welcomeEmailContent({ email, storeId }) {
   const subject = 'Welcome to BuildBot — your trial has started'
   const text = `Hi! Your BuildBot account (${email}) is verified.\nStore id: ${storeId}\nLog in and finish store setup.`
-  const html = `<p>Your BuildBot account is verified.</p><p>Store id: <code>${storeId}</code></p>`
+  const dashUrl = (process.env.APP_URL || 'https://build-volt.vercel.app') + '/dashboard'
+  const html = emailShell(`
+  <h1>Welcome to BuildBot! 🎉</h1>
+  <p>Your account is verified and your 14-day free trial has started. Here's how to get going:</p>
+  <p><strong>1. Finish store setup</strong> — add your store name, brand color, and currency.</p>
+  <p><strong>2. Add your products</strong> — upload a CSV or connect WooCommerce to sync your catalog.</p>
+  <p><strong>3. Embed the widget</strong> — copy one script tag to your store and you're live.</p>
+  <a class="btn" href="${dashUrl}">Open your dashboard</a>
+  <p class="note">Store ID: <code>${storeId}</code></p>
+`)
   return { subject, text, html }
 }
 
@@ -115,7 +153,14 @@ export function passwordResetEmailContent({ appUrl, token, otp }) {
     '',
     'Expires in 1 hour.',
   ].join('\n')
-  const html = `<p>Reset code: <strong>${otp}</strong></p><p><a href="${link}">Reset password</a></p>`
+  const html = emailShell(`
+  <h1>Password reset</h1>
+  <p>Use the code below to reset your BuildBot password.</p>
+  <div class="code">${otp}</div>
+  <p>Or click the button:</p>
+  <a class="btn" href="${link}">Reset my password</a>
+  <p class="note">This link expires in 1 hour. If you didn't request a reset, you can ignore this email.</p>
+`)
   return { subject, text, html, link }
 }
 
@@ -129,6 +174,12 @@ export function adminPasswordResetEmailContent({ appUrl, token, otp }) {
     '',
     'Expires in 1 hour.',
   ].join('\n')
-  const html = `<p>Admin reset code: <strong>${otp}</strong></p><p><a href="${link}">Reset password</a></p>`
+  const html = emailShell(`
+  <h1>Admin password reset</h1>
+  <p>Use the code below to reset the BuildBot admin password.</p>
+  <div class="code">${otp}</div>
+  <a class="btn" href="${link}">Reset admin password</a>
+  <p class="note">Expires in 1 hour.</p>
+`)
   return { subject, text, html, link }
 }

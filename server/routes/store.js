@@ -18,6 +18,13 @@ import {
 
 const router = Router()
 
+// E7: Strip HTML-dangerous characters from free-text fields before DB write.
+// Defense-in-depth: React already escapes on render, but the widget injects
+// some values via innerHTML so we must sanitize server-side too.
+function sanitizeText(str, maxLen = 500) {
+  return String(str || '').replace(/[<>"'&]/g, '').trim().slice(0, maxLen)
+}
+
 function slugifyName(name) {
   const base = String(name || '')
     .toLowerCase()
@@ -190,22 +197,19 @@ router.put('/widget-settings', authStore, async (req, res) => {
     ).trim()
     // Panel background is fixed white for consistent contrast
     const widgetBg = '#FFFFFF'
-    const currency = String(req.body.currency ?? store.currency ?? 'PKR')
-      .trim()
-      .slice(0, 8)
-    const widgetTitle = String(
+    const currency = sanitizeText(req.body.currency ?? store.currency ?? 'PKR', 8)
+    const widgetTitle = sanitizeText(
       req.body.widgetTitle ?? store.widget_title ?? 'BuildBot',
+      60,
     )
-      .trim()
-      .slice(0, 60)
-    const welcomeMsg = String(req.body.welcomeMsg ?? store.welcome_msg ?? '')
-      .trim()
-      .slice(0, 500)
-    const buttonText = String(
+    const welcomeMsg = sanitizeText(
+      req.body.welcomeMsg ?? store.welcome_msg ?? '',
+      500,
+    )
+    const buttonText = sanitizeText(
       req.body.buttonText ?? store.button_text ?? 'Get Started',
+      40,
     )
-      .trim()
-      .slice(0, 40)
     const widgetEnabled =
       req.body.widgetEnabled === undefined
         ? store.widget_enabled

@@ -513,6 +513,16 @@
   }
 }
 
+/* ── Print (hide widget when user prints the host page) ─────────────────── */
+
+@media print {
+  #bb-launcher,
+  #bb-panel,
+  .bb-modal {
+    display: none !important;
+  }
+}
+
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

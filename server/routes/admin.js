@@ -23,6 +23,11 @@ const emailDevHints = () => process.env.EMAIL_TEST_MODE === 'true'
 
 const router = Router()
 
+// E7: Strip HTML-dangerous characters from free-text fields.
+function sanitizeText(str, maxLen = 500) {
+  return String(str || '').replace(/[<>"'&]/g, '').trim().slice(0, maxLen)
+}
+
 function mapPayment(p) {
   return {
     id: p.id,
@@ -431,7 +436,7 @@ router.post('/admin/extend-trial', authAdmin, async (req, res) => {
 router.post('/admin/save-notes', authAdmin, async (req, res) => {
   try {
     const storeId = String(req.body.storeId || '').trim()
-    const notes = String(req.body.notes || '')
+    const notes = sanitizeText(req.body.notes, 2000)
     await getDb().execute({
       sql: `UPDATE stores SET admin_notes = ?, updated_at = datetime('now') WHERE id = ?`,
       args: [notes, storeId],

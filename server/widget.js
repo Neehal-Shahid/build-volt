@@ -186,7 +186,7 @@
       .join('')
     body.innerHTML =
       '<h2 class="bb-title">Your budget</h2>' +
-      '<p class="bb-muted">How much can you spend? (' + (cfg.currency || 'PKR') + ')</p>' +
+      '<p class="bb-muted">How much can you spend? (' + escapeHtml(cfg.currency || 'PKR') + ')</p>' +
       '<input class="bb-input" id="bb-budget" type="number" min="1000" step="1000" placeholder="e.g. 80000" />' +
       '<div class="bb-chips">' + chips + '</div>' +
       '<button type="button" class="bb-btn" id="bb-next">Continue</button>' +
@@ -375,8 +375,8 @@
       .join('')
 
     var usage = data.usage
-      ? '<p class="bb-tiny">Usage: ' + data.usage.used + '/' + data.usage.limit +
-        ' (' + data.usage.period + ')</p>'
+      ? '<p class="bb-tiny">Usage: ' + escapeHtml(String(data.usage.used)) + '/' +
+        escapeHtml(String(data.usage.limit)) + ' (' + escapeHtml(String(data.usage.period || '')) + ')</p>'
       : ''
 
     // D4: Share button — copies a plain-text summary to clipboard

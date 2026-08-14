@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0A1A2D"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="0" y1="315" x2="1200" y2="315" stroke="#1a3050" stroke-width="1"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="#1a3050" stroke-width="1"/>
+
+  <!-- Accent bar top -->
+  <rect x="0" y="0" width="1200" height="6" fill="#2A5EE8"/>
+
+  <!-- Logo wordmark -->
+  <text
+    x="600" y="240"
+    font-family="system-ui,-apple-system,Arial,sans-serif"
+    font-weight="800"
+    font-size="96"
+    fill="#FFFFFF"
+    text-anchor="middle"
+    letter-spacing="-2"
+  >Build<tspan fill="#2A5EE8">Bot</tspan></text>
+
+  <!-- Tagline -->
+  <text
+    x="600" y="310"
+    font-family="system-ui,-apple-system,Arial,sans-serif"
+    font-weight="400"
+    font-size="34"
+    fill="#94A3B8"
+    text-anchor="middle"
+  >AI PC Build Recommendations for Your Store</text>
+
+  <!-- Pills -->
+  <rect x="282" y="370" width="200" height="44" rx="22" fill="#1a3050"/>
+  <text x="382" y="398" font-family="system-ui,-apple-system,Arial,sans-serif" font-size="18" fill="#2A5EE8" font-weight="600" text-anchor="middle">WooCommerce</text>
+
+  <rect x="500" y="370" width="200" height="44" rx="22" fill="#1a3050"/>
+  <text x="600" y="398" font-family="system-ui,-apple-system,Arial,sans-serif" font-size="18" fill="#2A5EE8" font-weight="600" text-anchor="middle">Claude AI</text>
+
+  <rect x="718" y="370" width="200" height="44" rx="22" fill="#1a3050"/>
+  <text x="818" y="398" font-family="system-ui,-apple-system,Arial,sans-serif" font-size="18" fill="#2A5EE8" font-weight="600" text-anchor="middle">Pakistan 🇵🇰</text>
+
+  <!-- Bottom domain -->
+  <text
+    x="600" y="560"
+    font-family="system-ui,-apple-system,Arial,sans-serif"
+    font-size="22"
+    fill="#475569"
+    text-anchor="middle"
+  >build-volt.vercel.app</text>
+</svg>

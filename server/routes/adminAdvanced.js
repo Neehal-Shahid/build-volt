@@ -16,6 +16,11 @@ import { normalizePaymentMode } from '../lib/paymentMode.js'
 
 const router = Router()
 
+// E7: Strip HTML-dangerous characters from free-text fields.
+function sanitizeText(str, maxLen = 500) {
+  return String(str || '').replace(/[<>"'&]/g, '').trim().slice(0, maxLen)
+}
+
 const CONFIG_KEYS = [
   'payment_mode',
   'payment_number',
@@ -211,8 +216,8 @@ router.post('/admin/platform-config-full', authAdmin, async (req, res) => {
 router.post('/admin/send-email', authAdmin, async (req, res) => {
   try {
     const storeId = String(req.body.storeId || '').trim()
-    const subject = String(req.body.subject || '').trim()
-    const message = String(req.body.message || '').trim()
+    const subject = sanitizeText(req.body.subject, 120)
+    const message = sanitizeText(req.body.message, 2000)
     if (!subject || !message) {
       return res.status(400).json({ success: false, error: 'Subject and message required' })
     }
@@ -577,8 +582,8 @@ router.post('/admin/remind-store', authAdmin, async (req, res) => {
 // --- Store support tickets ---
 router.post('/support', authStore, async (req, res) => {
   try {
-    const subject = String(req.body.subject || '').trim().slice(0, 120)
-    const message = String(req.body.message || '').trim().slice(0, 4000)
+    const subject = sanitizeText(req.body.subject, 120)
+    const message = sanitizeText(req.body.message, 4000)
     if (!subject || !message) {
       return res.status(400).json({ success: false, error: 'Subject and message required' })
     }

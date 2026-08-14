@@ -22,7 +22,36 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
 
-app.use(cors({ origin: true, credentials: true }))
+// E5: Lock down CORS — only allow the Vercel frontend + local dev.
+// Widget routes (/api/recommend, /api/store-config, /api/widget-ping) are called
+// from arbitrary shop domains, so they use a separate open-CORS handler.
+const ALLOWED_ORIGINS = [
+  process.env.APP_URL,          // e.g. https://build-volt.vercel.app
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+].filter(Boolean)
+
+const _widgetCors = cors({ origin: '*' })
+const _restrictedCors = cors({
+  origin(origin, cb) {
+    // No origin = curl / Postman / WooCommerce PHP plugin — allow
+    if (!origin) return cb(null, true)
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true)
+    cb(new Error(`CORS: origin not allowed — ${origin}`))
+  },
+  credentials: true,
+})
+
+// Route widget endpoints through open CORS; everything else is restricted
+app.use(function smartCors(req, res, next) {
+  const p = req.path || ''
+  if (
+    p === '/api/recommend' ||
+    p.startsWith('/api/store-config/') ||
+    p.startsWith('/api/widget-ping/')
+  ) return _widgetCors(req, res, next)
+  return _restrictedCors(req, res, next)
+})
 app.use(express.json({ limit: '2mb' }))
 
 app.get('/widget.js', (_req, res) => {

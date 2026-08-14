@@ -10,6 +10,8 @@ import Verify from './pages/Verify'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
+import Terms from './pages/Terms'
+import Privacy from './pages/Privacy'
 
 export default function App() {
   return (
@@ -31,6 +33,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/admin" element={<Admin />} />
           </Routes>
         </BrowserRouter>
