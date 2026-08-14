@@ -513,6 +513,287 @@
   }
 }
 
+/* ── Result cards (3-build grid) ───────────────────────────────────────── */
+
+.bb-result-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.bb-rc {
+  border: 1.5px solid var(--bb-border);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.bb-rc:hover {
+  border-color: var(--bb-brand);
+  box-shadow: 0 4px 14px rgba(42,94,232,0.1);
+  transform: translateY(-1px);
+}
+
+.bb-rc:active { transform: translateY(0); }
+
+.bb-rc-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bb-rc-tier {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--bb-text);
+}
+
+.bb-rc-price {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--bb-brand);
+  white-space: nowrap;
+}
+
+.bb-rc-tag {
+  font-size: 0.8rem;
+  color: var(--bb-muted);
+}
+
+/* Within / over budget badge */
+.bb-rc-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  width: fit-content;
+  letter-spacing: 0.01em;
+}
+
+.bb-badge-ok   { background: rgba(16,185,129,0.12); color: #047857; }
+.bb-badge-over { background: rgba(239,68,68,0.10);  color: #b91c1c; }
+
+/* Card action buttons */
+.bb-rc-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.bb-rc-detail,
+.bb-rc-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  border-radius: 7px;
+  padding: 0.42rem 0.75rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.12s, background 0.12s;
+}
+
+.bb-rc-detail {
+  background: var(--bb-brand);
+  color: #fff;
+  flex: 1;
+}
+
+.bb-rc-detail:hover { filter: brightness(1.1); }
+
+.bb-rc-pdf {
+  background: var(--bb-panel);
+  color: var(--bb-text);
+  border: 1px solid var(--bb-border);
+}
+
+.bb-rc-pdf:hover { background: var(--bb-border); }
+
+/* ── No-build screen ───────────────────────────────────────────────────── */
+
+.bb-no-build {
+  text-align: center;
+  padding: 0.5rem 0 0.75rem;
+}
+
+.bb-no-build-icon {
+  font-size: 2rem;
+  margin-bottom: 0.4rem;
+  line-height: 1;
+}
+
+/* Minimum budget callout */
+.bb-min-budget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0.75rem auto 0;
+  padding: 0.65rem 1.25rem;
+  background: rgba(42,94,232,0.07);
+  border: 1.5px solid rgba(42,94,232,0.2);
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.bb-min-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--bb-muted);
+}
+
+.bb-min-amount {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--bb-brand);
+}
+
+/* Missing essential categories list */
+.bb-missing-cats {
+  list-style: none;
+  margin: 0.6rem auto 0;
+  padding: 0;
+  width: fit-content;
+  text-align: left;
+}
+
+.bb-missing-cats li {
+  font-size: 0.85rem;
+  color: var(--bb-muted);
+  padding: 0.2rem 0;
+}
+
+.bb-missing-cats li::before {
+  content: '• ';
+  color: #f59e0b;
+}
+
+/* ── Modal redesign ──────────────────────────────────────────────────── */
+
+.bb-modal-head-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+}
+
+/* “Why this build?” section */
+.bb-modal-why {
+  background: rgba(42,94,232,0.06);
+  border-left: 3px solid var(--bb-brand);
+  border-radius: 0 8px 8px 0;
+  padding: 0.65rem 0.85rem;
+  margin: 0.75rem 0;
+}
+
+.bb-modal-why-label {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--bb-brand);
+}
+
+.bb-modal-why-text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--bb-text);
+}
+
+/* Parts table */
+.bb-modal-parts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.bb-modal-parts thead th {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--bb-muted);
+  border-bottom: 1.5px solid var(--bb-border);
+  font-weight: 700;
+}
+
+.bb-modal-parts thead th:last-child { text-align: right; }
+
+.bb-pt-cat {
+  color: var(--bb-muted);
+  font-size: 0.78rem;
+  padding: 0.38rem 0.5rem;
+  border-bottom: 1px solid var(--bb-border);
+  width: 90px;
+  vertical-align: top;
+}
+
+.bb-pt-nm {
+  padding: 0.38rem 0.5rem;
+  border-bottom: 1px solid var(--bb-border);
+  line-height: 1.4;
+}
+
+.bb-pt-pr {
+  text-align: right;
+  padding: 0.38rem 0.5rem;
+  border-bottom: 1px solid var(--bb-border);
+  color: var(--bb-brand);
+  font-weight: 700;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+/* Total row */
+.bb-modal-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0.5rem;
+  margin-top: 0.25rem;
+  font-weight: 800;
+  background: var(--bb-panel);
+  border-radius: 8px;
+}
+
+.bb-modal-total span:last-child {
+  color: var(--bb-brand);
+  font-size: 1.05rem;
+}
+
+/* Warnings (missing parts / over budget) */
+.bb-modal-warn {
+  margin-top: 0.65rem;
+  padding: 0.5rem 0.75rem;
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82rem;
+  color: #92400e;
+  line-height: 1.45;
+}
+
+.bb-modal-warn-over {
+  background: #fef2f2;
+  border-left-color: #ef4444;
+  color: #b91c1c;
+}
+
 /* ── Print (hide widget when user prints the host page) ─────────────────── */
 
 @media print {

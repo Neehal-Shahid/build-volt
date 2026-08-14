@@ -10,6 +10,25 @@ import {
 
 const router = Router()
 
+// Minimum set of categories required to produce a viable PC build.
+// If the store catalog is missing any of these, we cannot build at all.
+const ESSENTIAL_CATS = ['CPU', 'Motherboard', 'RAM', 'Storage']
+
+// Cheapest possible build using the essentials — returned as minBudget
+// when the user's budget is too low.
+function computeMinBudget(products) {
+  const cheapest = {}
+  for (const p of products) {
+    const price = Number(p.price)
+    if (cheapest[p.category] === undefined || price < cheapest[p.category]) {
+      cheapest[p.category] = price
+    }
+  }
+  let total = 0
+  for (const cat of ESSENTIAL_CATS) total += cheapest[cat] || 0
+  return Math.ceil(total / 1000) * 1000   // round up to nearest 1 000
+}
+
 const PURPOSES = [
   'Office',
   'Studies',
@@ -122,6 +141,26 @@ function pickProducts(products, budget, purpose) {
   const balanced = buildTier('balanced')
   const max = buildTier('max')
 
+  function buildSummary(tier, data) {
+    const t = tier.toLowerCase()
+    let why
+    if (t.includes('budget')) {
+      why = `focuses on the most affordable options to keep costs low while covering essential ${purpose} requirements`
+    } else if (t.includes('balanced')) {
+      why = `strikes the best price-to-performance balance for ${purpose} — a solid all-rounder without overspending`
+    } else {
+      why = `uses the highest-performing available components to maximise ${purpose} capability within the catalog`
+    }
+    const notes = []
+    if (data.missing.length) {
+      const m = data.missing.join(', ')
+      notes.push(`${m} could not be included — not available in this store's catalog`)
+    }
+    if (data.total > budget) notes.push('this build slightly exceeds your budget')
+    const suffix = notes.length ? ` Note: ${notes.join('; ')}.` : ''
+    return `This build ${why}.${suffix}`
+  }
+
   function pack(tier, tagline, data) {
     const within = data.total <= budget
     return {
@@ -135,10 +174,10 @@ function pickProducts(products, budget, purpose) {
       compatibilityNote: '',
       parts: data.parts,
       missingCategories: data.missing,
-      summary: `A ${tier.toLowerCase()} oriented build for ${purpose}.`,
-      tips: 'Prices are from this store’s catalog. Confirm stock before ordering.',
+      summary: buildSummary(tier, data),
+      tips: "Prices are from this store's catalog. Confirm stock before ordering.",
       budgetAdvice: within
-        ? `About ${Math.round(data.total).toLocaleString()} ${'PKR'} used of your budget.`
+        ? `About ${Math.round(data.total).toLocaleString()} PKR used of your budget.`
         : 'This build may exceed budget — trim GPU or storage if needed.',
     }
   }
@@ -345,6 +384,33 @@ router.post('/recommend', async (req, res) => {
 
     const affordable = products.filter((p) => Number(p.price) <= budget)
 
+    // ── Catalog sufficiency check ─────────────────────────────────────────
+    // Verify the store has at least all 4 essential categories before we try
+    // to build. If not, return a clear error — budget is irrelevant here.
+    if (process.env.TEST_MODE !== 'true' && products.length) {
+      const availableCats = new Set(products.map((p) => p.category))
+      const missingEssential = ESSENTIAL_CATS.filter((c) => !availableCats.has(c))
+      if (missingEssential.length > 0) {
+        const noBuildsReason =
+          `Store catalog is missing essential categories: ${missingEssential.join(', ')}. Cannot build a complete PC.`
+        await logRecommendation({
+          storeId, budget, purpose, extras, builds: [], canBuild: false,
+          noBuildsReason, source: 'empty', model: null, ip,
+        })
+        return res.json({
+          success: true,
+          builds: [],
+          canBuild: false,
+          noBuildsReason,
+          errorCode: 'insufficient_catalog',
+          missingEssential,
+          currency,
+          usage: { used, limit, remaining: Math.max(0, limit - used), period },
+          cached: false,
+        })
+      }
+    }
+
     if (process.env.TEST_MODE === 'true') {
       source = 'test'
       model = 'test-mode'
@@ -355,11 +421,33 @@ router.post('/recommend', async (req, res) => {
       noBuildsReason = 'This store has no products in stock yet.'
       builds = []
       source = 'empty'
+
+      await logRecommendation({ storeId, budget, purpose, extras, builds, canBuild, noBuildsReason, source, model, ip })
+      return res.json({
+        success: true, builds, canBuild, noBuildsReason,
+        errorCode: 'no_products',
+        currency,
+        usage: { used, limit, remaining: Math.max(0, limit - used), period },
+        cached: false,
+      })
     } else if (!affordable.length) {
       canBuild = false
-      noBuildsReason = 'No products are within this budget.'
+      const minBudget = computeMinBudget(products)
+      noBuildsReason =
+        `Your budget of PKR ${Number(budget).toLocaleString()} is too low. ` +
+        `A minimum of PKR ${minBudget.toLocaleString()} is needed for a basic build.`
       builds = []
       source = 'empty'
+
+      await logRecommendation({ storeId, budget, purpose, extras, builds, canBuild, noBuildsReason, source, model, ip })
+      return res.json({
+        success: true, builds, canBuild, noBuildsReason,
+        errorCode: 'budget_too_low',
+        minBudget,
+        currency,
+        usage: { used, limit, remaining: Math.max(0, limit - used), period },
+        cached: false,
+      })
     } else {
       // Real Anthropic call
       const apiKey = process.env.ANTHROPIC_API_KEY
@@ -381,16 +469,26 @@ router.post('/recommend', async (req, res) => {
 
         const systemPrompt = [
           'You are BuildBot, an AI PC build recommender for a Pakistani PC parts store.',
-          'Return ONLY valid JSON — no markdown, no explanation.',
+          'Return ONLY valid JSON — no markdown, no explanation outside the JSON.',
           'Return an array of exactly 3 build objects: Budget Build, Balanced Build, Max Build.',
           'Each build object must have these exact fields:',
-          '  tier (string), tagline (string), buildName (string), totalPrice (number),',
-          '  withinBudget (boolean), budgetRemaining (number), compatible (boolean),',
-          '  compatibilityNote (string), parts (array), missingCategories (array),',
-          '  summary (string), tips (string), budgetAdvice (string).',
-          'Each part must have: category, name (exact from catalog), price, quantity, totalPrice, reason.',
-          'Only use products from the catalog provided. Do NOT invent products.',
-          'Prices are in PKR. Budget is in PKR.',
+          '  tier (string — e.g. "Budget Build"),',
+          '  tagline (string — short catchy phrase),',
+          '  buildName (string),',
+          '  totalPrice (number — sum of all included parts),',
+          '  withinBudget (boolean),',
+          '  budgetRemaining (number — budget minus totalPrice, can be negative),',
+          '  compatible (boolean),',
+          '  compatibilityNote (string),',
+          '  parts (array of parts objects),',
+          '  missingCategories (array of category name strings that you could NOT include because they are absent from the catalog),',
+          '  summary (string — 2 sentences: first explains WHY this build suits the stated purpose and budget tier; second notes any trade-offs or missing parts),',
+          '  tips (string),',
+          '  budgetAdvice (string).',
+          'Each part must have: category (string), name (exact product name from catalog), price (number), quantity (number), totalPrice (number), reason (string).',
+          'Only use products listed in the catalog. Do NOT invent or guess product names.',
+          'If a required category is not in the catalog, add it to missingCategories — do NOT invent a product for it.',
+          'Prices are in PKR.',
         ].join('\n')
 
         const userMsg = [

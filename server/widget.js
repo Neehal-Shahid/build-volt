@@ -343,95 +343,132 @@
     }
   }
 
+  // ── No-build screen: budget-too-low / missing catalog / etc. ──────────────────
+
+  function renderNoBuild(body, data, cfg) {
+    var currency = data.currency || cfg.currency || 'PKR'
+    var code = data.errorCode || ''
+    var heading = 'No builds available'
+    var message = ''
+    var extraHtml = ''
+
+    if (code === 'budget_too_low' && data.minBudget) {
+      heading = 'Budget too low'
+      message = 'Your budget of ' + escapeHtml(money(state.budget, currency)) +
+        ' is not enough to build a PC from this store\u2019s catalog.'
+      extraHtml =
+        '<div class="bb-min-budget">' +
+          '<span class="bb-min-label">Minimum needed</span>' +
+          '<span class="bb-min-amount">' + escapeHtml(money(data.minBudget, currency)) + '</span>' +
+        '</div>'
+    } else if (code === 'insufficient_catalog') {
+      heading = 'Catalog incomplete'
+      message = 'This store is missing essential PC components.'
+      if (data.missingEssential && data.missingEssential.length) {
+        extraHtml =
+          '<ul class="bb-missing-cats">' +
+          data.missingEssential.map(function (c) {
+            return '<li>' + escapeHtml(c) + ' — not in catalog</li>'
+          }).join('') +
+          '</ul>'
+      }
+    } else if (code === 'no_products') {
+      heading = 'No products yet'
+      message = 'This store hasn\u2019t added any products yet. Check back soon.'
+    } else {
+      message = data.noBuildsReason || 'Try a higher budget or check the store catalog.'
+    }
+
+    body.innerHTML =
+      '<div class="bb-no-build">' +
+        '<div class="bb-no-build-icon" aria-hidden="true">' +
+          (code === 'budget_too_low' ? '\uD83D\uDCB8' : '\u26A0\uFE0F') +
+        '</div>' +
+        '<h2 class="bb-title">' + escapeHtml(heading) + '</h2>' +
+        '<p class="bb-muted">' + escapeHtml(message) + '</p>' +
+        extraHtml +
+      '</div>' +
+      (code === 'budget_too_low'
+        ? '<button type="button" class="bb-btn" id="bb-adjust">Adjust budget</button>'
+        : '') +
+      '<button type="button" class="bb-btn bb-btn-ghost" id="bb-restart">Start over</button>'
+
+    var adj = body.querySelector('#bb-adjust')
+    if (adj) adj.onclick = function () { state.screen = 'budget'; render() }
+    body.querySelector('#bb-restart').onclick = function () {
+      state.screen = 'welcome'; state.result = null; render()
+    }
+  }
+
+  // ── Results screen — 3 cards, each with Details + PDF ─────────────────────────
+
   function renderResults(body, cfg) {
     var data = state.result || {}
     var builds = data.builds || []
     var currency = data.currency || cfg.currency || 'PKR'
 
-    if (!data.canBuild) {
-      body.innerHTML =
-        '<h2 class="bb-title">No builds available</h2>' +
-        '<p class="bb-muted"></p>' +
-        '<button type="button" class="bb-btn" id="bb-home">Start over</button>'
-      body.querySelector('.bb-muted').textContent =
-        data.noBuildsReason || 'Try a higher budget or check the store catalog.'
-      body.querySelector('#bb-home').onclick = function () {
-        state.screen = 'welcome'
-        render()
-      }
-      return
-    }
+    if (!data.canBuild) { renderNoBuild(body, data, cfg); return }
 
-    var cards = builds
-      .map(function (b, idx) {
-        return (
-          '<button type="button" class="bb-card" data-idx="' + idx + '">' +
-          '<strong>' + escapeHtml(b.tier || 'Build') + '</strong>' +
-          '<span class="bb-card-tag">' + escapeHtml(b.tagline || '') + '</span>' +
-          '<span class="bb-card-price">' + money(b.totalPrice, currency) + '</span>' +
-          '</button>'
-        )
-      })
-      .join('')
+    var pdfIco = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>'
+
+    var cards = builds.map(function (b, idx) {
+      var within = b.withinBudget !== false
+      return (
+        '<div class="bb-rc" data-idx="' + idx + '">' +
+          '<div class="bb-rc-head">' +
+            '<strong class="bb-rc-tier">' + escapeHtml(b.tier || 'Build') + '</strong>' +
+            '<span class="bb-rc-price">' + escapeHtml(money(b.totalPrice, currency)) + '</span>' +
+          '</div>' +
+          '<span class="bb-rc-tag">' + escapeHtml(b.tagline || '') + '</span>' +
+          '<span class="bb-rc-badge ' + (within ? 'bb-badge-ok' : 'bb-badge-over') + '">' +
+            (within ? '\u2713 Within budget' : '\u2191 Over budget') +
+          '</span>' +
+          '<div class="bb-rc-actions">' +
+            '<button type="button" class="bb-rc-detail" data-action="detail" data-idx="' + idx + '">View details</button>' +
+            '<button type="button" class="bb-rc-pdf" data-action="pdf" data-idx="' + idx + '">' + pdfIco + ' PDF</button>' +
+          '</div>' +
+        '</div>'
+      )
+    }).join('')
 
     var usage = data.usage
-      ? '<p class="bb-tiny">Usage: ' + escapeHtml(String(data.usage.used)) + '/' +
-        escapeHtml(String(data.usage.limit)) + ' (' + escapeHtml(String(data.usage.period || '')) + ')</p>'
+      ? '<p class="bb-tiny" style="margin-top:0.4rem">Usage: ' +
+          escapeHtml(String(data.usage.used)) + '/' +
+          escapeHtml(String(data.usage.limit)) + ' (' +
+          escapeHtml(String(data.usage.period || '')) + ')</p>'
       : ''
 
-    // D4: Share button — copies a plain-text summary to clipboard
     body.innerHTML =
       '<h2 class="bb-title">Your 3 builds</h2>' +
-      '<p class="bb-muted">Tap a card to see the full parts list.</p>' +
-      '<div class="bb-cards">' + cards + '</div>' +
+      '<p class="bb-muted">Tap a build to see why it fits your needs.</p>' +
+      '<div class="bb-result-cards">' + cards + '</div>' +
       usage +
-      '<div class="bb-result-actions">' +
-      '<button type="button" class="bb-btn bb-btn-ghost bb-btn-icon" id="bb-share">' +
-      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>' +
-      ' Share builds' +
-      '</button>' +
-      '<button type="button" class="bb-btn bb-btn-ghost bb-btn-icon" id="bb-print">' +
-      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>' +
-      ' Print / Save PDF' +
-      '</button>' +
-      '</div>' +
-      '<button type="button" class="bb-btn bb-btn-ghost" id="bb-home" style="margin-top:0.35rem">Start over</button>' +
+      '<button type="button" class="bb-btn bb-btn-ghost" id="bb-home" style="margin-top:0.5rem">Start over</button>' +
       '<div id="bb-modal" class="bb-modal" hidden></div>'
 
-    body.querySelectorAll('[data-idx]').forEach(function (el) {
-      el.onclick = function () {
-        openModal(builds[Number(el.getAttribute('data-idx'))], currency)
+    // Wire buttons inside each card
+    body.querySelectorAll('[data-action="detail"]').forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation()
+        openModal(builds[Number(btn.getAttribute('data-idx'))], currency, cfg)
+      }
+    })
+    body.querySelectorAll('[data-action="pdf"]').forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation()
+        downloadBuildPdf(builds[Number(btn.getAttribute('data-idx'))], currency, cfg)
+      }
+    })
+    // Click anywhere on the card (outside buttons) also opens details
+    body.querySelectorAll('.bb-rc').forEach(function (card) {
+      card.onclick = function (e) {
+        if (e.target.closest('[data-action]')) return
+        openModal(builds[Number(card.getAttribute('data-idx'))], currency, cfg)
       }
     })
 
     body.querySelector('#bb-home').onclick = function () {
-      state.screen = 'welcome'
-      state.result = null
-      render()
-    }
-
-    // D4: Share — copy text summary to clipboard, fallback to nothing visible
-    body.querySelector('#bb-share').onclick = function () {
-      var btn = body.querySelector('#bb-share')
-      var text = buildSummaryText(builds, currency, cfg)
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function () {
-          btn.textContent = '✓ Copied!'
-          setTimeout(function () {
-            btn.innerHTML =
-              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share builds'
-          }, 2000)
-        }).catch(function () {
-          shareViaFallback(text)
-        })
-      } else {
-        shareViaFallback(text)
-      }
-    }
-
-    // D3: Print / Save PDF — opens a clean print window, no CDN, no popup blocker
-    body.querySelector('#bb-print').onclick = function () {
-      printBuilds(builds, currency, cfg)
+      state.screen = 'welcome'; state.result = null; render()
     }
   }
 
@@ -478,96 +515,138 @@
     ta.select()
   }
 
-  // ── D3: Print without popup blocker ──────────────────────────────────────────
+  // ── Per-build PDF download ─────────────────────────────────────────────────
+  // Opens one build's HTML in a new tab and auto-triggers the print/save dialog.
+  // Each build card and the modal have their own button that calls this.
 
-  function printBuilds(builds, currency, cfg) {
-    // Build a self-contained printable HTML string and write it to a
-    // same-origin blob URL — avoids popup blockers entirely.
-    var title = escapeHtml(cfg.widgetTitle || 'BuildBot') + ' — Recommendations'
+  function downloadBuildPdf(build, currency, cfg) {
+    var store = escapeHtml(cfg.widgetTitle || 'BuildBot')
+    var tier = escapeHtml(build.tier || 'Build')
+    var partsRows = (build.parts || []).map(function (p) {
+      return '<tr>' +
+        '<td class="cat">' + escapeHtml(p.category) + '</td>' +
+        '<td class="nm">'  + escapeHtml(p.name)     + '</td>' +
+        '<td class="pr">'  + money(p.price, currency) + '</td>' +
+      '</tr>'
+    }).join('')
+    var missing = (build.missingCategories || [])
+    var missingNote = missing.length
+      ? '<p class="warn">⚠ Not included (not in catalog): ' +
+          missing.map(function (c) { return escapeHtml(c) }).join(', ') + '</p>'
+      : ''
+    var overNote = build.withinBudget === false
+      ? '<p class="warn">⚠ This build exceeds your budget.</p>'
+      : ''
+
     var html = [
-      '<!DOCTYPE html><html><head>',
-      '<meta charset="utf-8">',
-      '<title>' + title + '</title>',
+      '<!DOCTYPE html><html><head><meta charset="utf-8">',
+      '<title>' + tier + ' — ' + store + '</title>',
       '<style>',
-      'body{font-family:system-ui,sans-serif;padding:32px;color:#0a1a2d;max-width:680px;margin:0 auto}',
-      'h1{font-size:1.4rem;margin:0 0 0.25rem}',
-      '.meta{color:#64748b;font-size:0.9rem;margin:0 0 1.5rem}',
-      '.build{border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin:0 0 16px}',
-      '.build h2{margin:0 0 0.25rem;font-size:1.05rem}',
-      '.build .price{color:#2a5ee8;font-weight:700;margin:0 0 0.75rem;font-size:0.9rem}',
-      'table{width:100%;border-collapse:collapse;font-size:0.88rem}',
-      'td{padding:5px 8px;border-bottom:1px solid #f1f5f9}',
-      'td:last-child{text-align:right;white-space:nowrap;color:#2a5ee8;font-weight:600}',
-      '.footer{margin-top:2rem;color:#94a3b8;font-size:0.78rem;text-align:center}',
-      '@media print{body{padding:16px}.no-print{display:none}}',
-      '</style>',
-      '</head><body>',
-      '<h1>' + title + '</h1>',
-      '<p class="meta">Budget: ' + money(state.budget, currency) + ' &nbsp;·&nbsp; Purpose: ' + escapeHtml(state.purpose || '') + '</p>',
-    ]
+      'body{font-family:system-ui,sans-serif;padding:2rem;color:#0a1a2d;max-width:640px;margin:0 auto}',
+      'h1{font-size:1.45rem;margin:0 0 .15rem}',
+      '.sub{color:#64748b;font-size:.88rem;margin:0 0 1.25rem}',
+      '.why{border-left:3px solid #2a5ee8;padding:.6rem 1rem;background:#f8fafc;margin:0 0 1.1rem;font-size:.9rem;line-height:1.55;color:#334155}',
+      '.why b{display:block;margin-bottom:.2rem;color:#0a1a2d;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}',
+      'table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:.5rem}',
+      'th{text-align:left;padding:.4rem .6rem;border-bottom:2px solid #e2e8f0;font-size:.78rem;text-transform:uppercase;color:#64748b;letter-spacing:.03em}',
+      'td{padding:.4rem .6rem;border-bottom:1px solid #f1f5f9;vertical-align:top}',
+      'td.cat{color:#64748b;font-size:.82rem;width:110px}',
+      'td.pr{text-align:right;color:#2a5ee8;font-weight:600;white-space:nowrap}',
+      '.total{display:flex;justify-content:space-between;align-items:center;margin-top:.75rem;padding:.6rem .6rem;background:#f8fafc;border-radius:6px;font-weight:700}',
+      '.total-p{color:#2a5ee8;font-size:1.05rem}',
+      '.warn{margin:.75rem 0 0;padding:.5rem .85rem;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:4px;font-size:.85rem;color:#92400e}',
+      '.ft{margin-top:2rem;padding-top:.75rem;border-top:1px solid #e2e8f0;font-size:.78rem;color:#94a3b8;text-align:center}',
+      '@media print{body{padding:1rem}}',
+      '</style></head><body>',
+      '<h1>' + tier + '</h1>',
+      '<p class="sub">' + escapeHtml(money(state.budget, currency)) + ' budget &nbsp;·&nbsp; ' + escapeHtml(state.purpose || '') + ' &nbsp;·&nbsp; ' + store + '</p>',
+      build.summary ? '<div class="why"><b>Why this build?</b>' + escapeHtml(build.summary) + '</div>' : '',
+      '<table><thead><tr><th>Category</th><th>Component</th><th style="text-align:right">Price</th></tr></thead>',
+      '<tbody>' + partsRows + '</tbody></table>',
+      '<div class="total"><span>Total</span><span class="total-p">' + money(build.totalPrice, currency) + '</span></div>',
+      missingNote,
+      overNote,
+      '<div class="ft">Generated by BuildBot</div>',
+      '<script>window.onload=function(){window.print()}<\/script>',
+      '</body></html>',
+    ].join('\n')
 
-    builds.forEach(function (b) {
-      html.push('<div class="build">')
-      html.push('<h2>' + escapeHtml(b.tier || 'Build') + '</h2>')
-      html.push('<p class="price">' + money(b.totalPrice, currency) + '</p>')
-      html.push('<table>')
-      ;(b.parts || []).forEach(function (p) {
-        html.push(
-          '<tr><td>' + escapeHtml(p.category) + '</td>' +
-          '<td>' + escapeHtml(p.name) + '</td>' +
-          '<td>' + money(p.price, currency) + '</td></tr>'
-        )
-      })
-      html.push('</table></div>')
-    })
-
-    html.push('<div class="footer">Generated by BuildBot</div>')
-    html.push('<script class="no-print">window.onload=function(){window.print()}<\/script>')
-    html.push('</body></html>')
-
-    var blob = new Blob([html.join('\n')], { type: 'text/html' })
+    var blob = new Blob([html], { type: 'text/html' })
     var url = URL.createObjectURL(blob)
     var a = document.createElement('a')
-    a.href = url
-    a.target = '_blank'
-    a.rel = 'noopener'
-    // Trigger in a user-gesture context — this click IS inside an onclick handler
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    // Revoke after a short delay so the new tab has time to load the blob
+    a.href = url; a.target = '_blank'; a.rel = 'noopener'
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
     setTimeout(function () { URL.revokeObjectURL(url) }, 30000)
   }
 
-  // ── Modal (parts detail) ──────────────────────────────────────────────────────
+  // ── Modal — build detail + “Why this build?” + per-build PDF ────────────────
 
-  function openModal(build, currency) {
+  function openModal(build, currency, cfg) {
     var modal = document.getElementById('bb-modal')
     if (!modal || !build) return
-    var parts = (build.parts || [])
-      .map(function (p) {
-        return (
-          '<li><strong>' + escapeHtml(p.category) + '</strong> — ' +
-          escapeHtml(p.name) +
-          ' <span style="color:var(--bb-brand);font-weight:700">(' + money(p.totalPrice || p.price, currency) + ')</span></li>'
-        )
-      })
-      .join('')
+
+    var partsRows = (build.parts || []).map(function (p) {
+      return '<tr>' +
+        '<td class="bb-pt-cat">' + escapeHtml(p.category) + '</td>' +
+        '<td class="bb-pt-nm">'  + escapeHtml(p.name)     + '</td>' +
+        '<td class="bb-pt-pr">'  + money(p.price, currency) + '</td>' +
+      '</tr>'
+    }).join('')
+
+    var missing = build.missingCategories || []
+    var missingHtml = missing.length
+      ? '<div class="bb-modal-warn">' +
+          '<strong>Not included (not in catalog):</strong> ' +
+          missing.map(function (c) { return escapeHtml(c) }).join(', ') +
+        '</div>'
+      : ''
+
+    var overHtml = build.withinBudget === false
+      ? '<div class="bb-modal-warn bb-modal-warn-over">This build exceeds your budget.</div>'
+      : ''
+
+    var pdfSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>'
 
     modal.hidden = false
     modal.innerHTML =
       '<div class="bb-modal-card">' +
-      '<div class="bb-modal-head">' +
-      '<div><strong></strong><p class="bb-muted" style="margin:0.15rem 0 0;font-size:0.82rem"></p></div>' +
-      '<button type="button" class="bb-close" id="bb-modal-close" aria-label="Close">×</button>' +
-      '</div>' +
-      '<ul class="bb-parts">' + parts + '</ul>' +
-      '<p style="font-weight:700;margin:0.5rem 0 0">Total: ' + money(build.totalPrice, currency) + '</p>' +
+        '<div class="bb-modal-head">' +
+          '<div>' +
+            '<strong id="bb-m-tier"></strong>' +
+            '<p class="bb-muted" id="bb-m-tag" style="margin:.1rem 0 0;font-size:.82rem"></p>' +
+          '</div>' +
+          '<div class="bb-modal-head-btns">' +
+            '<button type="button" class="bb-btn bb-btn-ghost bb-btn-icon" id="bb-m-pdf">' + pdfSvg + ' Download PDF</button>' +
+            '<button type="button" class="bb-close" id="bb-m-close" aria-label="Close">×</button>' +
+          '</div>' +
+        '</div>' +
+        (build.summary
+          ? '<div class="bb-modal-why">' +
+              '<p class="bb-modal-why-label">Why this build?</p>' +
+              '<p class="bb-modal-why-text" id="bb-m-summary"></p>' +
+            '</div>'
+          : '') +
+        '<table class="bb-modal-parts">' +
+          '<thead><tr>' +
+            '<th>Category</th><th>Component</th><th style="text-align:right">Price</th>' +
+          '</tr></thead>' +
+          '<tbody>' + partsRows + '</tbody>' +
+        '</table>' +
+        '<div class="bb-modal-total">' +
+          '<span>Total</span>' +
+          '<span id="bb-m-total"></span>' +
+        '</div>' +
+        missingHtml +
+        overHtml +
       '</div>'
 
-    modal.querySelector('.bb-modal-head strong').textContent = build.tier || 'Build'
-    modal.querySelector('.bb-modal-head .bb-muted').textContent = build.summary || build.tagline || ''
-    modal.querySelector('#bb-modal-close').onclick = function () { modal.hidden = true }
+    modal.querySelector('#bb-m-tier').textContent = build.tier || 'Build'
+    modal.querySelector('#bb-m-tag').textContent  = build.tagline || ''
+    modal.querySelector('#bb-m-total').textContent = money(build.totalPrice, currency)
+    var sumEl = modal.querySelector('#bb-m-summary')
+    if (sumEl) sumEl.textContent = build.summary
+    modal.querySelector('#bb-m-close').onclick = function () { modal.hidden = true }
+    modal.querySelector('#bb-m-pdf').onclick = function () { downloadBuildPdf(build, currency, cfg) }
     modal.onclick = function (e) { if (e.target === modal) modal.hidden = true }
   }
 
