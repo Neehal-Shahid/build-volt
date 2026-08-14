@@ -368,7 +368,7 @@ export default function Admin() {
       <aside className={`ad-sidebar ${menuOpen ? "is-open" : ""}`}>
         <div className="ad-sidebar-brand">
           <Link to="/">
-            <Logo />
+            <Logo dark />
           </Link>
           <button
             type="button"

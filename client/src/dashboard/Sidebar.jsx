@@ -53,7 +53,7 @@ export default function Sidebar({ groups, tab, onSelect, store, onLogout, open, 
       <aside className={`sd-sidebar ${open ? 'is-open' : ''}`}>
         <div className="sd-sidebar-brand">
           <Link to="/">
-            <Logo />
+            <Logo dark />
           </Link>
           <button
             type="button"

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 import Logo from "../landing/Logo";
+import leftImg from "../../Images/Left-Img.png";
 import "./auth.css";
 
 export default function AuthLayout({
@@ -13,10 +14,22 @@ export default function AuthLayout({
 }) {
   return (
     <div className="auth-shell">
+      {/* ── Dark brand panel ── */}
       <div className="auth-panel">
+        {/* Blue glow radial */}
         <div className="auth-panel-glow" aria-hidden="true" />
+
+        {/* PC-components illustration — white outlines, screen-blended on dark bg */}
+        <img
+          src={leftImg}
+          alt=""
+          aria-hidden="true"
+          className="auth-panel-img"
+        />
+
+        {/* Logo — light-text variant for dark panel */}
         <Link to="/" className="auth-panel-brand">
-          <Logo />
+          <Logo dark height={38} />
         </Link>
 
         {panel && (
@@ -40,9 +53,11 @@ export default function AuthLayout({
         )}
       </div>
 
+      {/* ── White form side ── */}
       <div className="auth-form-side">
+        {/* Mobile header — light logo on white bg */}
         <Link to="/" className="auth-mobile-brand">
-          <Logo />
+          <Logo height={34} />
         </Link>
 
         <div className="auth-card">
