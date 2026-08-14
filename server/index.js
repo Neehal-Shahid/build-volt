@@ -24,12 +24,22 @@ const PORT = Number(process.env.PORT) || 3001
 
 // E5: Lock down CORS — only allow the Vercel frontend + local dev.
 // Widget routes (/api/recommend, /api/store-config, /api/widget-ping) are called
-// from arbitrary shop domains, so they use a separate open-CORS handler.
+// from arbitrary shop domains so they use a separate open-CORS handler.
+// IMPORTANT: trailing slashes on APP_URL are stripped to prevent mismatches.
+// Build the CORS allowlist from:
+//   APP_URL          – primary Vercel/frontend URL
+//   EXTRA_ORIGINS    – comma-separated extra domains (e.g. custom domain)
+// Both strip trailing slashes so https://foo.com/ and https://foo.com both work.
 const ALLOWED_ORIGINS = [
-  process.env.APP_URL,          // e.g. https://build-volt.vercel.app
+  process.env.APP_URL,
+  ...(process.env.EXTRA_ORIGINS || '').split(',').map((s) => s.trim()),
   'http://localhost:5173',
+  'http://localhost:5174',   // Vite fallback port
   'http://127.0.0.1:5173',
-].filter(Boolean)
+  'http://127.0.0.1:5174',
+]
+  .filter(Boolean)
+  .map((u) => u.replace(/\/$/, ''))  // strip any trailing slash
 
 const _widgetCors = cors({ origin: '*' })
 const _restrictedCors = cors({
@@ -37,12 +47,18 @@ const _restrictedCors = cors({
     // No origin = curl / Postman / WooCommerce PHP plugin — allow
     if (!origin) return cb(null, true)
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true)
-    cb(new Error(`CORS: origin not allowed — ${origin}`))
+    // Use cb(null, false) — NOT cb(new Error(...)).
+    // Throwing an error cascades to Express error handler which sends a 500
+    // with NO CORS headers, causing the browser to report 'Failed to fetch'
+    // even for valid origins with a slight mismatch. false = clean block.
+    console.warn(`[cors] blocked origin: ${origin} | allowed: ${ALLOWED_ORIGINS.join(', ')}`)
+    cb(null, false)
   },
   credentials: true,
 })
 
-// Route widget endpoints through open CORS; everything else is restricted
+// Route widget endpoints through open CORS; everything else is restricted.
+// smartCors is ONE middleware that calls either handler — not both.
 app.use(function smartCors(req, res, next) {
   const p = req.path || ''
   if (
