@@ -127,13 +127,13 @@ export function verificationEmailContent({ appUrl, token, otp }) {
   return { subject, text, html, link }
 }
 
-export function welcomeEmailContent({ email, storeId }) {
+export function welcomeEmailContent({ email, storeId, trialDays = 14 }) {
   const subject = 'Welcome to BuildBot — your trial has started'
   const text = `Hi! Your BuildBot account (${email}) is verified.\nStore id: ${storeId}\nLog in and finish store setup.`
   const dashUrl = (process.env.APP_URL || 'https://build-volt.vercel.app') + '/dashboard'
   const html = emailShell(`
   <h1>Welcome to BuildBot! 🎉</h1>
-  <p>Your account is verified and your 14-day free trial has started. Here's how to get going:</p>
+  <p>Your account is verified and your ${trialDays}-day free trial has started. Here's how to get going:</p>
   <p><strong>1. Finish store setup</strong> — add your store name, brand color, and currency.</p>
   <p><strong>2. Add your products</strong> — upload a CSV or connect WooCommerce to sync your catalog.</p>
   <p><strong>3. Embed the widget</strong> — copy one script tag to your store and you're live.</p>

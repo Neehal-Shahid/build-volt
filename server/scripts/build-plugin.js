@@ -5,7 +5,6 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { spawnSync } from 'child_process'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '../..')
@@ -14,7 +13,6 @@ const outDir = path.join(root, 'server', 'public')
 const zipPath = path.join(outDir, 'buildbot-woocommerce.zip')
 const updatePath = path.join(outDir, 'plugin-update.json')
 
-const VERSION = '1.0.0'
 const apiBase = process.env.PUBLIC_API_URL || process.env.APP_URL || 'http://127.0.0.1:3001'
 
 function ensureDir(d) {
@@ -139,6 +137,15 @@ const patchedPhp = phpContent.replace(
   `define('BUILDBOT_API_BASE', '${apiBase}');`
 )
 
+// Read the version straight from the plugin header — never hardcode it here,
+// it drifts out of sync with the PHP file the moment either one is bumped alone.
+const versionMatch = phpContent.match(/^\s*\*\s*Version:\s*([\d.]+)/m)
+if (!versionMatch) {
+  console.error('Could not find "Version:" header in', phpSrc)
+  process.exit(1)
+}
+const VERSION = versionMatch[1]
+
 // Write patched plugin to a temp dir for zipping
 const tmpDir = path.join(outDir, '_tmp_plugin')
 if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true })
@@ -158,13 +165,12 @@ try {
   zipFolderStoreOnly(tmpDir, zipPath, 'buildbot-woocommerce')
   console.log('[build-plugin] Wrote', zipPath, '(API base:', apiBase + ')')
 } catch (err) {
-  console.warn('[build-plugin] Pure zip failed, trying PowerShell…', err.message)
-  const ps = `Compress-Archive -Path '${tmpDir}\\*' -DestinationPath '${zipPath}' -Force`
-  const r = spawnSync('powershell', ['-NoProfile', '-Command', ps], { encoding: 'utf8' })
-  if (r.status !== 0) {
-    console.error(r.stderr || r.stdout)
-    process.exit(1)
-  }
+  // Pure-JS zip has no OS dependency and should always succeed — if it
+  // doesn't, a Windows-only PowerShell fallback would silently no-op on
+  // Railway's Linux container, so fail loudly instead of masking it.
+  console.error('[build-plugin] Zip failed:', err.message)
+  try { fs.rmSync(tmpDir, { recursive: true }) } catch {}
+  process.exit(1)
 } finally {
   // Clean up temp dir
   try { fs.rmSync(tmpDir, { recursive: true }) } catch {}

@@ -57,10 +57,10 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  async function signup(email, password) {
+  async function signup(email, password, tosAccepted) {
     return api('/api/signup', {
       method: 'POST',
-      body: { email, password },
+      body: { email, password, tosAccepted },
     })
   }
 

@@ -13,6 +13,7 @@ import {
 import { sendEmail } from '../email.js'
 import { runDripOnce } from '../cron.js'
 import { normalizePaymentMode } from '../lib/paymentMode.js'
+import { logAdminAction } from '../lib/adminAudit.js'
 
 const router = Router()
 
@@ -32,6 +33,10 @@ const CONFIG_KEYS = [
   'limit_starter',
   'limit_growth',
   'limit_pro',
+  'product_limit_trial',
+  'product_limit_starter',
+  'product_limit_growth',
+  'product_limit_pro',
   'anthropic_model',
   'max_tokens',
   'usd_to_pkr',
@@ -50,6 +55,10 @@ function mapConfig(config) {
     limit_starter: config.limit_starter,
     limit_growth: config.limit_growth,
     limit_pro: config.limit_pro,
+    product_limit_trial: config.product_limit_trial,
+    product_limit_starter: config.product_limit_starter,
+    product_limit_growth: config.product_limit_growth,
+    product_limit_pro: config.product_limit_pro,
     anthropic_model: config.anthropic_model,
     max_tokens: config.max_tokens,
     usd_to_pkr: config.usd_to_pkr,
@@ -83,6 +92,7 @@ router.put('/admin/profile', authAdmin, async (req, res) => {
       args: [name, req.admin.adminId],
     })
     const admin = await getAdminById(req.admin.adminId)
+    await logAdminAction(req, 'admin_profile', name)
     res.json({ success: true, admin: publicAdmin(admin) })
   } catch (err) {
     console.error('[admin profile]', err)
@@ -106,6 +116,7 @@ router.put('/admin/password', authAdmin, async (req, res) => {
       sql: `UPDATE admins SET password_hash = ?, updated_at = datetime('now') WHERE id = ?`,
       args: [hash, admin.id],
     })
+    await logAdminAction(req, 'admin_password', 'updated')
     res.json({ success: true, message: 'Password updated' })
   } catch (err) {
     console.error('[admin password]', err)
@@ -205,6 +216,7 @@ router.get('/admin/platform-config-full', authAdmin, async (_req, res) => {
 router.post('/admin/platform-config-full', authAdmin, async (req, res) => {
   try {
     const config = await upsertConfig(req.body || {})
+    await logAdminAction(req, 'platform_config', Object.keys(req.body || {}).join(', '))
     res.json({ success: true, message: 'Settings saved', config })
   } catch (err) {
     console.error('[platform-config-full]', err)
@@ -230,6 +242,7 @@ router.post('/admin/send-email', authAdmin, async (req, res) => {
       html: `<p>${message.replace(/\n/g, '<br/>')}</p>`,
       template: 'admin_manual',
     })
+    await logAdminAction(req, 'send_email', storeId)
     res.json({ success: true, message: `Email sent to ${store.email}` })
   } catch (err) {
     console.error('[send-email]', err)
@@ -260,6 +273,7 @@ router.post('/admin/broadcast', authAdmin, async (req, res) => {
       })
       sent += 1
     }
+    await logAdminAction(req, 'broadcast', `sent=${sent}`)
     res.json({ success: true, message: `Broadcast sent to ${sent} store(s)`, sent })
   } catch (err) {
     console.error('[broadcast]', err)
@@ -267,9 +281,10 @@ router.post('/admin/broadcast', authAdmin, async (req, res) => {
   }
 })
 
-router.post('/admin/run-drip', authAdmin, async (_req, res) => {
+router.post('/admin/run-drip', authAdmin, async (req, res) => {
   try {
     const result = await runDripOnce()
+    await logAdminAction(req, 'run_drip', `sent=${result?.sent}`)
     res.json({ success: true, result })
   } catch (err) {
     console.error('[run-drip]', err)
@@ -344,6 +359,7 @@ router.post('/admin/support-tickets/:id/status', authAdmin, async (req, res) => 
       sql: `UPDATE support_tickets SET status = ?, updated_at = datetime('now') WHERE id = ?`,
       args: [status, id],
     })
+    await logAdminAction(req, 'ticket_status', `${id}:${status}`)
     res.json({ success: true, message: 'Ticket updated' })
   } catch (err) {
     console.error('[ticket status]', err)
@@ -380,6 +396,7 @@ router.post('/admin/support-tickets/:id/reply', authAdmin, async (req, res) => {
       args: [id],
     })
 
+    await logAdminAction(req, 'ticket_reply', String(id))
     res.json({ success: true, message: `Reply sent to ${t.email}` })
   } catch (err) {
     console.error('[ticket reply]', err)
@@ -395,6 +412,7 @@ router.delete('/admin/support-tickets/:id', authAdmin, async (req, res) => {
       sql: `DELETE FROM support_tickets WHERE id = ?`,
       args: [id],
     })
+    await logAdminAction(req, 'ticket_delete', String(id))
     res.json({ success: true, message: 'Ticket deleted' })
   } catch (err) {
     console.error('[ticket delete]', err)
@@ -463,15 +481,18 @@ router.post('/admin/db-cleanup', authAdmin, async (req, res) => {
       deleted += Number(r.rowsAffected || 0)
     }
     if (what === 'orphans' || what === 'all') {
-      await db.execute(
+      const rProducts = await db.execute(
         `DELETE FROM products WHERE store_id NOT IN (SELECT id FROM stores)`
       )
-      await db.execute(
+      const rRecs = await db.execute(
         `DELETE FROM recommendations WHERE store_id NOT IN (SELECT id FROM stores)`
       )
-      await db.execute(
+      const rPayments = await db.execute(
         `DELETE FROM payments WHERE store_id NOT IN (SELECT id FROM stores)`
       )
+      deleted += Number(rProducts.rowsAffected || 0)
+        + Number(rRecs.rowsAffected || 0)
+        + Number(rPayments.rowsAffected || 0)
     }
     if (what === 'pending_signups' || what === 'all') {
       const r = await db.execute(
@@ -493,6 +514,7 @@ router.post('/admin/db-cleanup', authAdmin, async (req, res) => {
       )
       deleted += Number(r.rowsAffected || 0)
     }
+    await logAdminAction(req, 'db_cleanup', `${what}:${deleted}`)
     res.json({ success: true, message: 'Cleanup done', deleted, what })
   } catch (err) {
     console.error('[db-cleanup]', err)
@@ -573,9 +595,34 @@ router.post('/admin/remind-store', authAdmin, async (req, res) => {
       html: `<p>Your <strong>${store.plan}</strong> plan ends soon. Renew from Billing.</p>`,
       template: 'admin_renew_remind',
     })
+    await logAdminAction(req, 'remind_store', storeId)
     res.json({ success: true, message: 'Reminder sent' })
   } catch (err) {
     res.status(500).json({ success: false, error: 'Could not send reminder' })
+  }
+})
+
+// --- Activity log ---
+router.get('/admin/activity-log', authAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 300)
+    const rows = await getDb().execute({
+      sql: `SELECT * FROM admin_activity_log ORDER BY id DESC LIMIT ?`,
+      args: [limit],
+    })
+    res.json({
+      success: true,
+      entries: rows.rows.map((e) => ({
+        id: e.id,
+        adminEmail: e.admin_email,
+        action: e.action,
+        detail: e.detail || '',
+        createdAt: e.created_at,
+      })),
+    })
+  } catch (err) {
+    console.error('[activity-log]', err)
+    res.status(500).json({ success: false, error: 'Could not load activity log' })
   }
 })
 

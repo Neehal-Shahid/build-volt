@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
-import { logAdminActivity } from './activityLog'
 import { useToast } from './useToast'
 import { ToastArea, relTime } from './adminUi'
 
@@ -110,14 +109,12 @@ export default function AdminComms() {
           method: 'POST', token,
           body: { storeId, subject, message },
         })
-        logAdminActivity('send_email', storeId)
         toast(res.message || 'Email sent', 'success')
       } else {
         const res = await api('/api/admin/broadcast', {
           method: 'POST', token,
           body: { subject, message, onlyMarketing: toMode !== 'everyone' },
         })
-        logAdminActivity('broadcast', `sent=${res.sent}`)
         toast(res.message || `Broadcast sent to ${res.sent} stores`, 'success')
       }
       setSubject('')
@@ -135,7 +132,6 @@ export default function AdminComms() {
     try {
       const res = await api('/api/admin/run-drip', { method: 'POST', token })
       setDripResult(res.result)
-      logAdminActivity('run_drip', `sent=${res.result?.sent}`)
       toast(`Drip done — sent ${res.result?.sent ?? 0}, skipped ${res.result?.skipped ?? 0}`, 'success')
     } catch (err) { toast(err.message, 'error') }
     finally { setBusy(false) }
@@ -148,7 +144,6 @@ export default function AdminComms() {
       await api(`/api/admin/support-tickets/${replyTarget}/reply`, {
         method: 'POST', token, body: { reply: replyText }
       })
-      logAdminActivity('ticket_reply', String(replyTarget))
       toast('Reply sent', 'success')
       setReplyTarget(null)
       setReplyText('')
@@ -165,7 +160,6 @@ export default function AdminComms() {
       await api(`/api/admin/support-tickets/${id}/status`, {
         method: 'POST', token, body: { status },
       })
-      logAdminActivity('ticket_status', `${id}:${status}`)
       toast(`Ticket marked ${status}`, 'success')
       await loadTickets()
     } catch (err) { toast(err.message, 'error') }
@@ -175,7 +169,6 @@ export default function AdminComms() {
     if (!window.confirm('Permanently delete this ticket? This cannot be undone.')) return
     try {
       await api(`/api/admin/support-tickets/${id}`, { method: 'DELETE', token })
-      logAdminActivity('ticket_delete', String(id))
       toast('Ticket deleted', 'success')
       await loadTickets()
     } catch (err) { toast(err.message, 'error') }

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { TrendingUp, DollarSign, AlertTriangle, Mail, CheckCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
-import { logAdminActivity } from './activityLog'
 import { useToast } from './useToast'
 import { ToastArea, relTime } from './adminUi'
 
@@ -31,7 +30,6 @@ export default function AdminRevenue() {
     setBusyId(storeId)
     try {
       await api('/api/admin/remind-store', { method: 'POST', token, body: { storeId } })
-      logAdminActivity('remind_store', storeId)
       toast('Renewal reminder sent', 'success')
     } catch (err) { toast(err.message, 'error') }
     finally { setBusyId(null) }

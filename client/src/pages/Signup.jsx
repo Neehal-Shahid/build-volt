@@ -52,7 +52,7 @@ export default function Signup() {
     }
     setBusy(true);
     try {
-      const data = await signup(email, password);
+      const data = await signup(email, password, tosAccepted);
       navigate("/verify", {
         state: {
           email,

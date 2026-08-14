@@ -17,6 +17,7 @@ import {
 } from '../lib/auth.js'
 import { normalizePaymentMode } from '../lib/paymentMode.js'
 import { sendEmail, adminPasswordResetEmailContent } from '../email.js'
+import { logAdminAction } from '../lib/adminAudit.js'
 
 const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
 const emailDevHints = () => process.env.EMAIL_TEST_MODE === 'true'
@@ -153,13 +154,16 @@ router.post('/admin/reset-password', async (req, res) => {
     let row = null
 
     if (token) {
+      // Exact substring match, not LIKE — a caller could otherwise smuggle
+      // their own % / _ wildcards into `token` and narrow the search space
+      // instead of having to guess the whole random value at once.
       const result = await db.execute({
         sql: `SELECT * FROM tokens
               WHERE type = 'admin_password_reset'
-                AND token LIKE ?
+                AND substr(token, 1, ?) = ?
                 AND (expires_at IS NULL OR expires_at >= datetime('now'))
               LIMIT 1`,
-        args: [`${token}:%`],
+        args: [token.length, token],
       })
       row = result.rows[0] || null
       if (otp && row) {
@@ -171,10 +175,10 @@ router.post('/admin/reset-password', async (req, res) => {
         sql: `SELECT * FROM tokens
               WHERE type = 'admin_password_reset'
                 AND email = ?
-                AND token LIKE ?
+                AND substr(token, -?) = ?
                 AND (expires_at IS NULL OR expires_at >= datetime('now'))
               LIMIT 1`,
-        args: [email, `%:${otp}`],
+        args: [email, otp.length, otp],
       })
       row = result.rows[0] || null
     } else {
@@ -327,11 +331,15 @@ router.get('/admin/store-products/:storeId', authAdmin, async (req, res) => {
 router.post('/admin/disable-store', authAdmin, async (req, res) => {
   try {
     const storeId = String(req.body.storeId || '').trim()
+    if (!(await getStoreById(storeId))) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
     await getDb().execute({
       sql: `UPDATE stores SET disabled = 1, active = 0, updated_at = datetime('now') WHERE id = ?`,
       args: [storeId],
     })
     const store = await getStoreById(storeId)
+    await logAdminAction(req, 'disable_store', storeId)
     res.json({ success: true, store: mapStoreRow(store) })
   } catch (err) {
     console.error('[disable-store]', err)
@@ -342,11 +350,15 @@ router.post('/admin/disable-store', authAdmin, async (req, res) => {
 router.post('/admin/activate-store', authAdmin, async (req, res) => {
   try {
     const storeId = String(req.body.storeId || '').trim()
+    if (!(await getStoreById(storeId))) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
     await getDb().execute({
       sql: `UPDATE stores SET disabled = 0, active = 1, updated_at = datetime('now') WHERE id = ?`,
       args: [storeId],
     })
     const store = await getStoreById(storeId)
+    await logAdminAction(req, 'activate_store', storeId)
     res.json({ success: true, store: mapStoreRow(store) })
   } catch (err) {
     console.error('[activate-store]', err)
@@ -378,6 +390,7 @@ router.post('/admin/delete-store', authAdmin, async (req, res) => {
       sql: `DELETE FROM stores WHERE id = ?`,
       args: [storeId],
     })
+    await logAdminAction(req, 'delete_store', storeId)
     res.json({ success: true, message: 'Store deleted' })
   } catch (err) {
     console.error('[delete-store]', err)
@@ -395,6 +408,9 @@ router.post('/admin/set-plan', authAdmin, async (req, res) => {
     if (!allowed.has(plan)) {
       return res.status(400).json({ success: false, error: 'Invalid plan' })
     }
+    if (!(await getStoreById(storeId))) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
     let planEnds = null
     if (plan !== 'trial') {
       planEnds = await daysFromNowIso(30)
@@ -404,6 +420,7 @@ router.post('/admin/set-plan', authAdmin, async (req, res) => {
       args: [plan, planEnds, storeId],
     })
     const store = await getStoreById(storeId)
+    await logAdminAction(req, 'set_plan', `${storeId}:${plan}`)
     res.json({ success: true, store: mapStoreRow(store) })
   } catch (err) {
     console.error('[set-plan]', err)
@@ -426,6 +443,7 @@ router.post('/admin/extend-trial', authAdmin, async (req, res) => {
       args: [base.toISOString(), storeId],
     })
     const updated = await getStoreById(storeId)
+    await logAdminAction(req, 'extend_trial', `${storeId}:+${days}d`)
     res.json({ success: true, store: mapStoreRow(updated) })
   } catch (err) {
     console.error('[extend-trial]', err)
@@ -437,11 +455,15 @@ router.post('/admin/save-notes', authAdmin, async (req, res) => {
   try {
     const storeId = String(req.body.storeId || '').trim()
     const notes = sanitizeText(req.body.notes, 2000)
+    if (!(await getStoreById(storeId))) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
     await getDb().execute({
       sql: `UPDATE stores SET admin_notes = ?, updated_at = datetime('now') WHERE id = ?`,
       args: [notes, storeId],
     })
     const store = await getStoreById(storeId)
+    await logAdminAction(req, 'save_notes', storeId)
     res.json({ success: true, store: mapStoreRow(store) })
   } catch (err) {
     console.error('[save-notes]', err)
@@ -453,11 +475,15 @@ router.post('/admin/set-drip-paused', authAdmin, async (req, res) => {
   try {
     const storeId = String(req.body.storeId || '').trim()
     const paused = req.body.paused ? 1 : 0
+    if (!(await getStoreById(storeId))) {
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    }
     await getDb().execute({
       sql: `UPDATE stores SET drip_emails_paused = ?, updated_at = datetime('now') WHERE id = ?`,
       args: [paused, storeId],
     })
     const store = await getStoreById(storeId)
+    await logAdminAction(req, 'set_drip_paused', `${storeId}:${paused ? 'paused' : 'resumed'}`)
     res.json({ success: true, store: mapStoreRow(store) })
   } catch (err) {
     console.error('[set-drip-paused]', err)
@@ -557,6 +583,7 @@ router.post('/admin/approve-payment', authAdmin, async (req, res) => {
       })
     }
 
+    await logAdminAction(req, 'approve_payment', String(paymentId))
     res.json({
       success: true,
       message: 'Payment approved and plan activated',
@@ -605,6 +632,7 @@ router.post('/admin/reject-payment', authAdmin, async (req, res) => {
       })
     }
 
+    await logAdminAction(req, 'reject_payment', String(paymentId))
     res.json({
       success: true,
       message: 'Payment rejected',
@@ -632,6 +660,10 @@ router.get('/admin/platform-config', authAdmin, async (_req, res) => {
         limit_starter: config.limit_starter,
         limit_growth: config.limit_growth,
         limit_pro: config.limit_pro,
+        product_limit_trial: config.product_limit_trial,
+        product_limit_starter: config.product_limit_starter,
+        product_limit_growth: config.product_limit_growth,
+        product_limit_pro: config.product_limit_pro,
         anthropic_model: config.anthropic_model,
         max_tokens: config.max_tokens,
         usd_to_pkr: config.usd_to_pkr,
@@ -658,6 +690,10 @@ router.post('/admin/platform-config', authAdmin, async (req, res) => {
       'limit_starter',
       'limit_growth',
       'limit_pro',
+      'product_limit_trial',
+      'product_limit_starter',
+      'product_limit_growth',
+      'product_limit_pro',
       'anthropic_model',
       'max_tokens',
       'usd_to_pkr',
@@ -669,13 +705,18 @@ router.post('/admin/platform-config', authAdmin, async (req, res) => {
       updates.payment_mode = normalizePaymentMode(updates.payment_mode)
     }
 
+    const changedKeys = []
     for (const [key, value] of Object.entries(updates)) {
       if (!allowed.has(key)) continue
+      changedKeys.push(key)
       await db.execute({
         sql: `INSERT INTO platform_config (key, value, updated_at) VALUES (?, ?, datetime('now'))
               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
         args: [key, String(value)],
       })
+    }
+    if (changedKeys.length) {
+      await logAdminAction(req, 'platform_config', changedKeys.join(', '))
     }
 
     const config = await getPlatformConfig()
@@ -693,6 +734,10 @@ router.post('/admin/platform-config', authAdmin, async (req, res) => {
         limit_starter: config.limit_starter,
         limit_growth: config.limit_growth,
         limit_pro: config.limit_pro,
+        product_limit_trial: config.product_limit_trial,
+        product_limit_starter: config.product_limit_starter,
+        product_limit_growth: config.product_limit_growth,
+        product_limit_pro: config.product_limit_pro,
         anthropic_model: config.anthropic_model,
         max_tokens: config.max_tokens,
         usd_to_pkr: config.usd_to_pkr,

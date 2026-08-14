@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { CreditCard, CheckCircle, XCircle, Clock, Filter, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
-import { logAdminActivity } from './activityLog'
 import { useToast } from './useToast'
 import { ToastArea, relTime } from './adminUi'
 
@@ -66,7 +65,6 @@ export default function AdminPayments() {
     setBusyId(id)
     try {
       await api('/api/admin/approve-payment', { method: 'POST', token, body: { paymentId: id } })
-      logAdminActivity('approve_payment', String(id))
       toast('Payment approved — plan activated 30 days ✓', 'success')
       await load()
     } catch (err) { toast(err.message, 'error') }
@@ -83,7 +81,6 @@ export default function AdminPayments() {
     setBusyId(rejectTarget.id)
     try {
       await api('/api/admin/reject-payment', { method: 'POST', token, body: { paymentId: rejectTarget.id, reason: rejectReason } })
-      logAdminActivity('reject_payment', String(rejectTarget.id))
       toast('Payment rejected', 'success')
       setRejectTarget(null)
       await load()

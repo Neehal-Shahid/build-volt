@@ -47,6 +47,7 @@ async function createTables() {
       otp TEXT,
       verify_token TEXT,
       marketing_opt_in INTEGER DEFAULT 1,
+      tos_accepted_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       expires_at TEXT
     )`,
@@ -76,6 +77,7 @@ async function createTables() {
       woo_last_sync TEXT,
       google_id TEXT,
       marketing_opt_in INTEGER DEFAULT 1,
+      tos_accepted_at TEXT,
       drip_emails_paused INTEGER DEFAULT 0,
       admin_notes TEXT DEFAULT '',
       abuse_flag INTEGER DEFAULT 0,
@@ -176,6 +178,15 @@ async function createTables() {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     )`,
+
+    `CREATE TABLE IF NOT EXISTS admin_activity_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      admin_id INTEGER,
+      admin_email TEXT,
+      action TEXT NOT NULL,
+      detail TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
   ]
 
   for (const sql of statements) {
@@ -199,6 +210,7 @@ async function migrateStores() {
   const columns = [
     ['widget_last_seen', 'TEXT'],
     ['widget_installed_at', 'TEXT'],
+    ['tos_accepted_at', 'TEXT'],
   ]
   for (const [name, type] of columns) {
     try {
@@ -206,6 +218,11 @@ async function migrateStores() {
     } catch {
       // Column already exists
     }
+  }
+  try {
+    await db.execute(`ALTER TABLE pending_signups ADD COLUMN tos_accepted_at TEXT`)
+  } catch {
+    // Column already exists
   }
 }
 
@@ -219,6 +236,10 @@ async function seedPlatformConfig() {
     limit_starter: '500',
     limit_growth: '2000',
     limit_pro: '5000',
+    product_limit_trial: '30',
+    product_limit_starter: '200',
+    product_limit_growth: '1000',
+    product_limit_pro: '5000',
     anthropic_model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
     max_tokens: process.env.ANTHROPIC_MAX_TOKENS || '4096',
     usd_to_pkr: '280',

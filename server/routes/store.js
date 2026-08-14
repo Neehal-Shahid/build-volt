@@ -379,10 +379,15 @@ router.delete('/account', authStore, async (req, res) => {
         .json({ success: false, error: 'Password is wrong' })
     }
 
-    await getDb().execute({
-      sql: `DELETE FROM stores WHERE id = ?`,
-      args: [store.id],
-    })
+    // SQLite foreign keys aren't enforced by this connection, so the
+    // schema's ON DELETE CASCADE is inert — delete explicitly, same as
+    // the admin's /admin/delete-store path.
+    const db = getDb()
+    await db.execute({ sql: `DELETE FROM products WHERE store_id = ?`, args: [store.id] })
+    await db.execute({ sql: `DELETE FROM recommendations WHERE store_id = ?`, args: [store.id] })
+    await db.execute({ sql: `DELETE FROM payments WHERE store_id = ?`, args: [store.id] })
+    await db.execute({ sql: `DELETE FROM support_tickets WHERE store_id = ?`, args: [store.id] })
+    await db.execute({ sql: `DELETE FROM stores WHERE id = ?`, args: [store.id] })
 
     res.json({ success: true, message: 'Account deleted' })
   } catch (err) {

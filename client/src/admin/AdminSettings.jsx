@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
-import { logAdminActivity } from './activityLog'
 import { useToast } from './useToast'
 import { ToastArea } from './adminUi'
 
@@ -66,7 +65,6 @@ export default function AdminSettings() {
     setBusyProfile(true)
     try {
       await api('/api/admin/profile', { method: 'PUT', token, body: { name } })
-      logAdminActivity('admin_profile', name)
       toast('Profile saved', 'success')
     } catch (err) { toast(err.message, 'error') }
     finally { setBusyProfile(false) }
@@ -78,7 +76,6 @@ export default function AdminSettings() {
     setBusyPw(true)
     try {
       await api('/api/admin/password', { method: 'PUT', token, body: { currentPassword, newPassword } })
-      logAdminActivity('admin_password', 'updated')
       setCurrentPassword('')
       setNewPassword('')
       toast('Password updated', 'success')
@@ -102,7 +99,6 @@ export default function AdminSettings() {
           price_pro:     prices.pro,
         },
       })
-      logAdminActivity('payment_config', paymentMode)
       toast('Payment & plan settings saved', 'success')
     } catch (err) { toast(err.message, 'error') }
     finally { setBusyPayment(false) }
@@ -120,7 +116,6 @@ export default function AdminSettings() {
           usd_to_pkr: usdToPkr,
         },
       })
-      logAdminActivity('platform_config', maintenance ? 'maintenance_on' : 'maintenance_off')
       toast(maintenance ? '⚠ Maintenance mode ON' : 'Platform settings saved', maintenance ? 'info' : 'success')
     } catch (err) { toast(err.message, 'error') }
     finally { setBusyPlatform(false) }

@@ -42,8 +42,8 @@ async function createVerifiedStoreFromPending(pending) {
   await db.execute({
     sql: `INSERT INTO stores (
       id, email, password_hash, name, plan, trial_started_at, trial_ends,
-      active, email_verified, marketing_opt_in, created_at, updated_at
-    ) VALUES (?, ?, ?, '', 'trial', ?, ?, 1, 1, ?, ?, ?)`,
+      active, email_verified, marketing_opt_in, tos_accepted_at, created_at, updated_at
+    ) VALUES (?, ?, ?, '', 'trial', ?, ?, 1, 1, ?, ?, ?, ?)`,
     args: [
       storeId,
       pending.email,
@@ -51,6 +51,7 @@ async function createVerifiedStoreFromPending(pending) {
       now,
       trialEnds,
       pending.marketing_opt_in ? 1 : 0,
+      pending.tos_accepted_at || now,
       now,
       now,
     ],
@@ -61,7 +62,7 @@ async function createVerifiedStoreFromPending(pending) {
     args: [pending.id],
   })
 
-  const welcome = welcomeEmailContent({ email: pending.email, storeId })
+  const welcome = welcomeEmailContent({ email: pending.email, storeId, trialDays })
   await sendEmail({
     to: pending.email,
     subject: welcome.subject,
@@ -90,12 +91,16 @@ router.post('/signup', async (req, res) => {
     const email = String(req.body.email || '').trim().toLowerCase()
     const password = String(req.body.password || '')
     const marketingOptIn = req.body.marketingOptIn !== false
+    const tosAccepted = req.body.tosAccepted === true
 
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, error: 'Enter a valid email' })
     }
     const pwErr = validatePassword(password)
     if (pwErr) return res.status(400).json({ success: false, error: pwErr })
+    if (!tosAccepted) {
+      return res.status(400).json({ success: false, error: 'You must accept the Terms of Service and Privacy Policy' })
+    }
 
     const existingStore = await getStoreByEmail(email)
     if (existingStore) {
@@ -107,18 +112,20 @@ router.post('/signup', async (req, res) => {
     const verifyToken = randomToken()
     const password_hash = await hashPassword(password)
     const expiresAt = daysFromNow(1)
+    const tosAcceptedAt = new Date().toISOString()
 
     await db.execute({
-      sql: `INSERT INTO pending_signups (email, password_hash, otp, verify_token, marketing_opt_in, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+      sql: `INSERT INTO pending_signups (email, password_hash, otp, verify_token, marketing_opt_in, tos_accepted_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET
               password_hash = excluded.password_hash,
               otp = excluded.otp,
               verify_token = excluded.verify_token,
               marketing_opt_in = excluded.marketing_opt_in,
+              tos_accepted_at = excluded.tos_accepted_at,
               expires_at = excluded.expires_at,
               created_at = datetime('now')`,
-      args: [email, password_hash, otp, verifyToken, marketingOptIn ? 1 : 0, expiresAt],
+      args: [email, password_hash, otp, verifyToken, marketingOptIn ? 1 : 0, tosAcceptedAt, expiresAt],
     })
 
     const content = verificationEmailContent({
@@ -394,13 +401,16 @@ router.post('/reset-password', async (req, res) => {
     let row = null
 
     if (token) {
+      // Exact substring match, not LIKE — a caller could otherwise smuggle
+      // their own % / _ wildcards into `token` and narrow the search space
+      // instead of having to guess the whole random value at once.
       const result = await db.execute({
         sql: `SELECT * FROM tokens
               WHERE type = 'password_reset'
-                AND token LIKE ?
+                AND substr(token, 1, ?) = ?
                 AND (expires_at IS NULL OR expires_at >= datetime('now'))
               LIMIT 1`,
-        args: [`${token}:%`],
+        args: [token.length, token],
       })
       row = result.rows[0] || null
       if (otp && row) {
@@ -412,10 +422,10 @@ router.post('/reset-password', async (req, res) => {
         sql: `SELECT * FROM tokens
               WHERE type = 'password_reset'
                 AND email = ?
-                AND token LIKE ?
+                AND substr(token, -?) = ?
                 AND (expires_at IS NULL OR expires_at >= datetime('now'))
               LIMIT 1`,
-        args: [email, `%:${otp}`],
+        args: [email, otp.length, otp],
       })
       row = result.rows[0] || null
     } else {

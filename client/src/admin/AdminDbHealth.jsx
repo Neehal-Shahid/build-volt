@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Database, Trash2, RefreshCw, CheckCircle, AlertTriangle, Info } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
-import { logAdminActivity } from './activityLog'
 import { useToast } from './useToast'
 import { ToastArea } from './adminUi'
 
@@ -50,7 +49,6 @@ export default function AdminDbHealth() {
     setBusy(true)
     try {
       const r = await api('/api/admin/db-cleanup', { method: 'POST', token, body: { what } })
-      logAdminActivity('db_cleanup', what)
       toast(`Cleaned — ${r.deleted ?? 0} row(s) removed`, 'success')
       await load()
     } catch (err) { toast(err.message, 'error') }

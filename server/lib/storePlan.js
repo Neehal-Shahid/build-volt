@@ -82,6 +82,14 @@ export function planLimit(store, config) {
   }
 }
 
+/** Max catalog size for a store's plan — separate from the recommendation-usage limit above. */
+export function productLimit(store, config) {
+  const plan = String(store?.plan || 'trial').toLowerCase()
+  const defaults = { trial: 30, starter: 200, growth: 1000, pro: 5000 }
+  const key = `product_limit_${plan in defaults ? plan : 'trial'}`
+  return Number(config?.[key] || defaults[plan in defaults ? plan : 'trial'])
+}
+
 export function publicPlanStatus(store) {
   const lapsed = isPlanLapsed(store)
   const reason = widgetPauseReason(store)

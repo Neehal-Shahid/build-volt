@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import multer from 'multer'
-import { getDb } from '../database.js'
+import { getDb, getPlatformConfig } from '../database.js'
 import { authStore, getStoreById } from '../lib/auth.js'
+import { productLimit } from '../lib/storePlan.js'
 import {
   PRODUCT_CATEGORIES,
   normalizeCategory,
@@ -14,6 +15,14 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
 })
+
+async function countProducts(storeId) {
+  const result = await getDb().execute({
+    sql: `SELECT COUNT(*) AS c FROM products WHERE store_id = ?`,
+    args: [storeId],
+  })
+  return Number(result.rows[0]?.c || 0)
+}
 
 function assertOwnStore(req, storeId) {
   return req.user.storeId === storeId
@@ -103,6 +112,16 @@ router.post('/product', authStore, async (req, res) => {
     }
     if (!Number.isFinite(price) || price < 0) {
       return res.status(400).json({ success: false, error: 'Valid price is required' })
+    }
+
+    const config = await getPlatformConfig()
+    const limit = productLimit(store, config)
+    const count = await countProducts(storeId)
+    if (count >= limit) {
+      return res.status(403).json({
+        success: false,
+        error: `Product limit reached (${count}/${limit}) for the ${store?.plan || 'trial'} plan. Upgrade to add more.`,
+      })
     }
 
     const result = await getDb().execute({
@@ -276,6 +295,16 @@ router.post('/upload', authStore, upload.single('file'), async (req, res) => {
     }
     if (!rows.length) {
       return res.status(400).json({ success: false, error: 'No valid product rows found in CSV' })
+    }
+
+    const config = await getPlatformConfig()
+    const limit = productLimit(store, config)
+    const existing = await countProducts(storeId)
+    if (existing + rows.length > limit) {
+      return res.status(403).json({
+        success: false,
+        error: `This CSV would exceed the product limit for the ${store?.plan || 'trial'} plan (${existing}/${limit} used, ${rows.length} rows in file). Upgrade to import more.`,
+      })
     }
 
     const db = getDb()

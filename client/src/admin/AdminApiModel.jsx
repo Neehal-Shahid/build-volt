@@ -4,7 +4,6 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
-import { logAdminActivity } from './activityLog'
 import { useToast } from './useToast'
 import { ToastArea } from './adminUi'
 
@@ -49,6 +48,10 @@ export default function AdminApiModel() {
     limit_pro: '5000',
     trial_daily_limit: '3',
     usd_to_pkr: '280',
+    product_limit_trial: '30',
+    product_limit_starter: '200',
+    product_limit_growth: '1000',
+    product_limit_pro: '5000',
   })
   const [busy, setBusy] = useState(false)
 
@@ -72,6 +75,10 @@ export default function AdminApiModel() {
         limit_pro: String(c.limit_pro || '5000'),
         trial_daily_limit: String(c.trial_daily_limit || '3'),
         usd_to_pkr: String(c.usd_to_pkr || '280'),
+        product_limit_trial: String(c.product_limit_trial || '30'),
+        product_limit_starter: String(c.product_limit_starter || '200'),
+        product_limit_growth: String(c.product_limit_growth || '1000'),
+        product_limit_pro: String(c.product_limit_pro || '5000'),
       })
     } catch (err) {
       toast(err.message, 'error')
@@ -90,7 +97,6 @@ export default function AdminApiModel() {
         method: 'POST', token,
         body: { ...form, anthropic_model: modelId },
       })
-      logAdminActivity('api_model_save', modelId)
       toast('Model & limits saved', 'success')
       await load()
     } catch (err) { toast(err.message, 'error') }
@@ -244,6 +250,35 @@ export default function AdminApiModel() {
             <div className="sd-field">
               <label className="sd-field-label">Trial Daily Limit</label>
               <input type="number" min="1" {...field('trial_daily_limit')} />
+            </div>
+          </div>
+        </div>
+
+        {/* Product catalog limits */}
+        <div className="sd-card" style={{ marginBottom: '1.25rem' }}>
+          <div className="sd-card-title">
+            <Zap size={17} />
+            Product Catalog Limits
+          </div>
+          <p className="muted tiny" style={{ marginTop: 0 }}>
+            Max products a store can hold, by plan. Applies to manual/CSV catalogs only — WooCommerce sync has its own 5,000-product cap.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="sd-field">
+              <label className="sd-field-label">Trial</label>
+              <input type="number" min="1" {...field('product_limit_trial')} />
+            </div>
+            <div className="sd-field">
+              <label className="sd-field-label">Starter</label>
+              <input type="number" min="1" {...field('product_limit_starter')} />
+            </div>
+            <div className="sd-field">
+              <label className="sd-field-label">Growth</label>
+              <input type="number" min="1" {...field('product_limit_growth')} />
+            </div>
+            <div className="sd-field">
+              <label className="sd-field-label">Pro</label>
+              <input type="number" min="1" {...field('product_limit_pro')} />
             </div>
           </div>
         </div>
