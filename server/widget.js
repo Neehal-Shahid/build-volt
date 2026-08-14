@@ -34,7 +34,44 @@
     'Streaming',
     'Mixed Use',
   ]
+  // Inline SVG icons (stroke-based, 24x24 viewBox) — no emoji, no external assets
+  function svgIcon(inner) {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>'
+  }
+
+  var PURPOSE_ICONS = {
+    'Office': svgIcon('<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
+    'Studies': svgIcon('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'),
+    'Coding': svgIcon('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'),
+    'Designing': svgIcon('<path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/>'),
+    'Video Editing': svgIcon('<rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 3v18M17 3v18M2 8h5M2 16h5M17 8h5M17 16h5"/>'),
+    'Gaming': svgIcon('<rect x="2" y="7" width="20" height="10" rx="5"/><line x1="7" y1="12" x2="11" y2="12"/><line x1="9" y1="10" x2="9" y2="14"/><circle cx="15" cy="10.5" r=".6" fill="currentColor"/><circle cx="17.5" cy="13" r=".6" fill="currentColor"/>'),
+    'Streaming': svgIcon('<circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M8.5 8.5a5 5 0 0 0 0 7"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M5.5 5.5a9 9 0 0 0 0 13"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>'),
+    'Mixed Use': svgIcon('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>'),
+  }
   var EXTRA_CHIPS = ['Monitor', 'Keyboard', 'Mouse', 'Headset', 'Webcam']
+  var EXTRA_ICONS = {
+    'Monitor': svgIcon('<rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'),
+    'Keyboard': svgIcon('<rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10"/><line x1="10" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="14" y2="10"/><line x1="18" y1="10" x2="18" y2="10"/><line x1="6" y1="14" x2="18" y2="14"/>'),
+    'Mouse': svgIcon('<rect x="6" y="2" width="12" height="20" rx="6"/><line x1="12" y1="6" x2="12" y2="10"/>'),
+    'Headset': svgIcon('<path d="M3 14v-2a9 9 0 0 1 18 0v2"/><rect x="1" y="14" width="5" height="7" rx="2"/><rect x="18" y="14" width="5" height="7" rx="2"/>'),
+    'Webcam': svgIcon('<circle cx="12" cy="10" r="6"/><circle cx="12" cy="10" r="2" fill="currentColor" stroke="none"/><path d="M8 21h8"/><path d="M12 16v5"/>'),
+  }
+  // Steps that make up the guided flow — used to render the top progress bar
+  var FLOW_STEPS = ['welcome', 'budget', 'purpose', 'extras']
+
+  function renderProgress(screen) {
+    var idx = FLOW_STEPS.indexOf(screen)
+    if (idx < 0) return ''
+    var pct = Math.round((idx / (FLOW_STEPS.length - 1)) * 100)
+    return (
+      '<div class="bb-progress" role="progressbar" aria-valuenow="' + pct +
+      '" aria-valuemin="0" aria-valuemax="100">' +
+      '<div class="bb-progress-fill" style="width:' + pct + '%"></div>' +
+      '</div>'
+    )
+  }
 
   var state = {
     config: null,
@@ -143,6 +180,7 @@
 
   function renderWelcome(body, cfg) {
     body.innerHTML =
+      renderProgress('welcome') +
       '<h2 class="bb-title"></h2>' +
       '<p class="bb-muted"></p>' +
       '<button type="button" class="bb-btn" id="bb-start"></button>'
@@ -169,6 +207,7 @@
       })
       .join('')
     body.innerHTML =
+      renderProgress('budget') +
       '<h2 class="bb-title">Your budget</h2>' +
       '<p class="bb-muted">How much can you spend? (' + escapeHtml(cfg.currency || 'PKR') + ')</p>' +
       '<input class="bb-input" id="bb-budget" type="number" min="1000" step="1000" placeholder="e.g. 80000" />' +
@@ -213,13 +252,15 @@
   function renderPurpose(body) {
     var chips = PURPOSES.map(function (p) {
       var active = state.purpose === p ? ' bb-chip-active' : ''
+      var icon = PURPOSE_ICONS[p] ? '<span class="bb-chip-icon" aria-hidden="true">' + PURPOSE_ICONS[p] + '</span>' : ''
       return (
         '<button type="button" class="bb-chip' + active + '" data-purpose="' + p + '">' +
-        p +
+        icon + p +
         '</button>'
       )
     }).join('')
     body.innerHTML =
+      renderProgress('purpose') +
       '<h2 class="bb-title">What will you use it for?</h2>' +
       '<p class="bb-muted">Pick one purpose</p>' +
       '<div class="bb-chips">' + chips + '</div>' +
@@ -254,13 +295,15 @@
   function renderExtras(body) {
     var chips = EXTRA_CHIPS.map(function (p) {
       var on = state.extrasSelected.indexOf(p) >= 0 ? ' bb-chip-active' : ''
+      var icon = EXTRA_ICONS[p] ? '<span class="bb-chip-icon" aria-hidden="true">' + EXTRA_ICONS[p] + '</span>' : ''
       return (
         '<button type="button" class="bb-chip' + on + '" data-extra="' + p + '">' +
-        p +
+        icon + p +
         '</button>'
       )
     }).join('')
     body.innerHTML =
+      renderProgress('extras') +
       '<h2 class="bb-title">Any extras?</h2>' +
       '<p class="bb-muted">Optional — accessories or notes</p>' +
       '<div class="bb-chips">' + chips + '</div>' +
@@ -363,11 +406,13 @@
       message = data.noBuildsReason || 'Try a higher budget or check the store catalog.'
     }
 
+    var noBuildIcon = code === 'budget_too_low'
+      ? '<svg class="bb-icon-brand" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>'
+      : '<svg class="bb-icon-warn" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
+
     body.innerHTML =
       '<div class="bb-no-build">' +
-        '<div class="bb-no-build-icon" aria-hidden="true">' +
-          (code === 'budget_too_low' ? '\uD83D\uDCB8' : '\u26A0\uFE0F') +
-        '</div>' +
+        '<div class="bb-no-build-icon">' + noBuildIcon + '</div>' +
         '<h2 class="bb-title">' + escapeHtml(heading) + '</h2>' +
         '<p class="bb-muted">' + escapeHtml(message) + '</p>' +
         extraHtml +
@@ -397,8 +442,13 @@
 
     var cards = builds.map(function (b, idx) {
       var within = b.withinBudget !== false
+      var featured = builds.length === 3 && idx === 1
       return (
-        '<div class="bb-rc" data-idx="' + idx + '">' +
+        '<div class="bb-rc' + (featured ? ' bb-rc-featured' : '') + '" data-idx="' + idx + '">' +
+          (featured
+            ? '<span class="bb-rc-ribbon"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+              '<path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 7.1-1.01L12 2z"/></svg> Most Popular</span>'
+            : '') +
           '<div class="bb-rc-head">' +
             '<strong class="bb-rc-tier">' + escapeHtml(b.tier || 'Build') + '</strong>' +
             '<span class="bb-rc-price">' + escapeHtml(money(b.totalPrice, currency)) + '</span>' +
@@ -513,13 +563,14 @@
         '<td class="pr">'  + money(p.price, currency) + '</td>' +
       '</tr>'
     }).join('')
+    var warnIco = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
     var missing = (build.missingCategories || [])
     var missingNote = missing.length
-      ? '<p class="warn">⚠ Not included (not in catalog): ' +
+      ? '<p class="warn">' + warnIco + ' Not included (not in catalog): ' +
           missing.map(function (c) { return escapeHtml(c) }).join(', ') + '</p>'
       : ''
     var overNote = build.withinBudget === false
-      ? '<p class="warn">⚠ This build exceeds your budget.</p>'
+      ? '<p class="warn">' + warnIco + ' This build exceeds your budget.</p>'
       : ''
 
     var html = [
