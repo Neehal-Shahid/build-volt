@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api } from '../lib/api'
 
 const styles = `
   .legal-page {
@@ -63,6 +65,20 @@ const styles = `
 `
 
 export default function Terms() {
+  const [trialDays, setTrialDays] = useState(14)
+
+  useEffect(() => {
+    let cancelled = false
+    api('/api/plans')
+      .then((res) => {
+        if (!cancelled && res?.trialDays) setTrialDays(res.trialDays)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <>
       <style>{styles}</style>
@@ -83,7 +99,7 @@ export default function Terms() {
 
           <h2>2. Trial &amp; Subscription</h2>
           <p>
-            New accounts receive a 14-day free trial with full access to all
+            New accounts receive a {trialDays}-day free trial with full access to all
             features. No credit card is required during the trial. After the trial
             period ends, a paid subscription plan is required to keep the widget
             active and serving recommendations to shoppers. Plans are billed

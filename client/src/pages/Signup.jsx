@@ -1,24 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
 import AuthLayout from "../auth/AuthLayout";
 import TextField from "../auth/TextField";
 import PasswordField from "../auth/PasswordField";
 import PasswordStrength from "../auth/PasswordStrength";
 import SubmitButton from "../auth/SubmitButton";
 import Alert from "../auth/Alert";
-
-const PANEL = {
-  eyebrow: "Get started",
-  heading: "Launch your AI build widget in minutes",
-  body: "Join PC parts retailers using BuildBot to turn browsers into confident buyers.",
-  points: [
-    "14-day free trial, no card required",
-    "Works with WooCommerce or manual catalogs",
-    "Setup takes less than 10 minutes",
-  ],
-};
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -28,6 +18,30 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [trialDays, setTrialDays] = useState(14);
+
+  useEffect(() => {
+    let cancelled = false;
+    api("/api/plans")
+      .then((res) => {
+        if (!cancelled && res?.trialDays) setTrialDays(res.trialDays);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const panel = {
+    eyebrow: "Get started",
+    heading: "Launch your AI build widget in minutes",
+    body: "Join PC parts retailers using BuildBot to turn browsers into confident buyers.",
+    points: [
+      `${trialDays}-day free trial, no card required`,
+      "Works with WooCommerce or manual catalogs",
+      "Setup takes less than 10 minutes",
+    ],
+  };
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -58,7 +72,7 @@ export default function Signup() {
       eyebrow="Create account"
       title="Start your free trial"
       subtitle="No credit card required — set up your store in minutes."
-      panel={PANEL}
+      panel={panel}
       footer={
         <>
           <p>

@@ -344,7 +344,7 @@ router.get('/plugin/widget-config/:storeId', authPlugin, async (req, res) => {
       widgetTitle: store.widget_title,
       welcomeMsg: store.welcome_msg,
       buttonText: store.button_text,
-      widgetBg: store.widget_bg,
+      widgetBg: '#FFFFFF',
     })
   } catch (err) {
     console.error('[plugin widget-config]', err)

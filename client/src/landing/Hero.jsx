@@ -1,9 +1,25 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, PlayCircle, Sparkles } from 'lucide-react'
+import { api } from '../lib/api'
 import Reveal from '../components/Reveal'
 import WidgetPreview from './WidgetPreview'
 
 export default function Hero({ isLoggedIn }) {
+  const [trialDays, setTrialDays] = useState(14)
+
+  useEffect(() => {
+    let cancelled = false
+    api('/api/plans')
+      .then((res) => {
+        if (!cancelled && res?.trialDays) setTrialDays(res.trialDays)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <section className="lp-hero">
       <div className="lp-hero-glow" aria-hidden="true" />
@@ -44,7 +60,7 @@ export default function Hero({ isLoggedIn }) {
           </Reveal>
 
           <Reveal variant="up" delay={260} className="lp-hero-trust">
-            <span>14-day free trial</span>
+            <span>{trialDays}-day free trial</span>
             <span className="lp-hero-trust-dot" />
             <span>No credit card required</span>
             <span className="lp-hero-trust-dot" />

@@ -61,31 +61,15 @@
 
   // ── Theme ─────────────────────────────────────────────────────────────────────
 
-  function hexLuminance(hex) {
-    var c = String(hex || '').replace('#', '')
-    if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2]
-    var r = parseInt(c.slice(0, 2), 16) / 255
-    var g = parseInt(c.slice(2, 4), 16) / 255
-    var b = parseInt(c.slice(4, 6), 16) / 255
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-  }
-
   function applyTheme(cfg) {
     var root = document.documentElement
     if (cfg.brandColor) root.style.setProperty('--bb-brand', cfg.brandColor)
-    var bg = cfg.widgetBg || '#FFFFFF'
-    root.style.setProperty('--bb-bg', bg)
-    if (hexLuminance(bg) > 0.5) {
-      root.style.setProperty('--bb-text', '#0A1A2D')
-      root.style.setProperty('--bb-muted', '#64748B')
-      root.style.setProperty('--bb-border', '#E2E8F0')
-      root.style.setProperty('--bb-panel', '#F8FAFC')
-    } else {
-      root.style.setProperty('--bb-text', '#f8fafc')
-      root.style.setProperty('--bb-muted', '#94a3b8')
-      root.style.setProperty('--bb-border', 'rgba(255, 255, 255, 0.12)')
-      root.style.setProperty('--bb-panel', 'rgba(255, 255, 255, 0.06)')
-    }
+    // Panel background is always white for readability — no dark mode.
+    root.style.setProperty('--bb-bg', '#FFFFFF')
+    root.style.setProperty('--bb-text', '#0A1A2D')
+    root.style.setProperty('--bb-muted', '#64748B')
+    root.style.setProperty('--bb-border', '#E2E8F0')
+    root.style.setProperty('--bb-panel', '#F8FAFC')
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────

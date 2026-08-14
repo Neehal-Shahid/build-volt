@@ -146,7 +146,7 @@ router.get('/store-config/:storeId', async (req, res) => {
       widgetTitle: store.widget_title || 'BuildBot',
       welcomeMsg: store.welcome_msg || '',
       buttonText: store.button_text || 'Get Started',
-      widgetBg: store.widget_bg || '#FFFFFF',
+      widgetBg: '#FFFFFF',
       budgetPresets: parsePresets(store.budget_presets),
       plan: store.plan,
       planStatus,
