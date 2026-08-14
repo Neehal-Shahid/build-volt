@@ -176,7 +176,7 @@ export default function BillingTab({ store }) {
             {isTrial && trialDays !== null && (
               <p className="muted tiny" style={{ margin: "0.3rem 0 0" }}>
                 <Clock size={12} style={{ marginRight: 4, verticalAlign: -2 }} />
-                Trial ends in {trialDays} day{trialDays === 1 ? "" : "s"}
+                Trial ends in {trialDays} day{trialDays === 1 ? "" : "s"} — {new Date(store.trialEnds).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
               </p>
             )}
             {!isTrial && current?.period && (

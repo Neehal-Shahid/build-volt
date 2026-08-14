@@ -451,6 +451,32 @@ router.post('/admin/extend-trial', authAdmin, async (req, res) => {
   }
 })
 
+// Sets a store's trial to start now, using whatever trial_days the platform is
+// currently configured with — unlike extend-trial (which adds days on top of
+// whatever the store already has), this normalizes an old store to today's default.
+router.post('/admin/reset-trial', authAdmin, async (req, res) => {
+  try {
+    const storeId = String(req.body.storeId || '').trim()
+    const store = await getStoreById(storeId)
+    if (!store)
+      return res.status(404).json({ success: false, error: 'Store not found' })
+    const config = await getPlatformConfig()
+    const trialDays = Number(config.trial_days || 14)
+    const trialEnds = new Date()
+    trialEnds.setDate(trialEnds.getDate() + trialDays)
+    await getDb().execute({
+      sql: `UPDATE stores SET trial_ends = ?, trial_started_at = datetime('now'), plan = 'trial', updated_at = datetime('now') WHERE id = ?`,
+      args: [trialEnds.toISOString(), storeId],
+    })
+    const updated = await getStoreById(storeId)
+    await logAdminAction(req, 'reset_trial', `${storeId}:${trialDays}d`)
+    res.json({ success: true, store: mapStoreRow(updated) })
+  } catch (err) {
+    console.error('[reset-trial]', err)
+    res.status(500).json({ success: false, error: 'Could not reset trial' })
+  }
+})
+
 router.post('/admin/save-notes', authAdmin, async (req, res) => {
   try {
     const storeId = String(req.body.storeId || '').trim()

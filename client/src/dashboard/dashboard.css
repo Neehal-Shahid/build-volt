@@ -330,6 +330,64 @@
     padding: 1.75rem;
 }
 
+/* —— Persistent "what to do next" nudge shown on every tab but Overview —— */
+.sd-setup-nudge-wrap {
+    width: 100%;
+    max-width: 1080px;
+    margin: 1.1rem auto 0;
+    padding: 0 1.75rem;
+}
+
+.sd-setup-nudge {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.65rem 1rem;
+    border: 1px solid rgba(42, 94, 232, 0.25);
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--navy);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.12s, background 0.12s;
+}
+
+.sd-setup-nudge:hover {
+    border-color: var(--blue);
+    background: rgba(42, 94, 232, 0.1);
+}
+
+.sd-setup-nudge-dot {
+    color: var(--blue);
+    flex: none;
+}
+
+.sd-setup-nudge-text {
+    flex: 1;
+}
+
+.sd-setup-nudge-text strong {
+    color: var(--blue);
+}
+
+.sd-setup-nudge-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: none;
+    font-weight: 700;
+    color: var(--blue);
+}
+
+@media (max-width: 900px) {
+    .sd-setup-nudge-wrap {
+        padding: 0 1.25rem;
+    }
+}
+
 .sd-sidebar-backdrop {
     display: none;
 }
@@ -1975,6 +2033,16 @@ button.sd-step-item:hover {
     padding: 0.4rem 0.7rem;
     font-size: 0.8rem;
     box-shadow: none;
+}
+
+.sd-bulk-category-select {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--navy);
+    font-family: inherit;
 }
 
 .btn-ghost.danger {

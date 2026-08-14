@@ -130,6 +130,37 @@ router.post('/products/bulk-stock', authStore, async (req, res) => {
   }
 })
 
+router.post('/products/bulk-category', authStore, async (req, res) => {
+  try {
+    const storeId = req.user.storeId
+    const store = await getStoreById(storeId)
+    if (store?.woo_connected) {
+      return res.status(403).json({
+        success: false,
+        error: 'Products are managed by WooCommerce for this store',
+      })
+    }
+    const ids = Array.isArray(req.body.ids)
+      ? [...new Set(req.body.ids.map(Number).filter(Number.isFinite))]
+      : []
+    if (!ids.length) {
+      return res.status(400).json({ success: false, error: 'No product ids provided' })
+    }
+    const category = normalizeCategory(req.body.category)
+
+    const placeholders = ids.map(() => '?').join(',')
+    const result = await getDb().execute({
+      sql: `UPDATE products SET category = ?, updated_at = datetime('now') WHERE store_id = ? AND id IN (${placeholders})`,
+      args: [category, storeId, ...ids],
+    })
+    await touchCatalog(storeId)
+    res.json({ success: true, updated: Number(result.rowsAffected ?? ids.length), category })
+  } catch (err) {
+    console.error('[products bulk-category]', err)
+    res.status(500).json({ success: false, error: 'Bulk category update failed' })
+  }
+})
+
 // Preview a CSV's column headers, for the import column-mapping UI
 router.post('/products/csv-headers', authStore, upload.single('file'), async (req, res) => {
   try {

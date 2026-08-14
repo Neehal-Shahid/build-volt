@@ -230,6 +230,27 @@ export default function ProductsTab({ store, mode }) {
     }
   }
 
+  async function bulkSetCategory(category) {
+    if (!category) return;
+    setBulkBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const data = await api("/api/products/bulk-category", {
+        method: "POST",
+        token,
+        body: { ids: [...selected], category },
+      });
+      setMessage(`Moved ${data.updated} product${data.updated === 1 ? "" : "s"} to ${data.category}`);
+      setSelected(new Set());
+      await load();
+    } catch (err) {
+      setError(err.message || "Bulk category update failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function bulkDelete() {
     if (!window.confirm(`Delete ${selected.size} selected product${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
     setBulkBusy(true);
@@ -385,6 +406,17 @@ export default function ProductsTab({ store, mode }) {
               <button type="button" className="btn btn-ghost btn-sm" disabled={bulkBusy} onClick={() => bulkSetStock(false)}>
                 Mark out of stock
               </button>
+              <select
+                className="sd-bulk-category-select"
+                disabled={bulkBusy}
+                value=""
+                onChange={(e) => bulkSetCategory(e.target.value)}
+              >
+                <option value="" disabled>Change category to…</option>
+                {(categories.length ? categories : []).map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
               <button type="button" className="btn btn-ghost btn-sm danger" disabled={bulkBusy} onClick={bulkDelete}>
                 <Trash2 size={14} /> Delete
               </button>
@@ -481,7 +513,7 @@ export default function ProductsTab({ store, mode }) {
                       </Badge>
                     </td>
                     <td>
-                      {!wooLocked && (
+                      {!wooLocked && selected.size === 0 && (
                         <div className="sd-row-actions">
                           <button
                             type="button"

@@ -11,10 +11,13 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../lib/api";
 import { getCatalogMode } from "../lib/catalogMode";
+import { isWidgetInstalled, isWidgetEnabled } from "../lib/widgetStatus";
 import StoreSetupGate from "../dashboard/StoreSetupGate";
 import Sidebar from "../dashboard/Sidebar";
 import Topbar from "../dashboard/Topbar";
+import SetupNudge from "../dashboard/SetupNudge";
 import OverviewTab from "../dashboard/OverviewTab";
 import StoreSyncTab from "../dashboard/StoreSyncTab";
 import ProductsTab from "../dashboard/ProductsTab";
@@ -57,10 +60,11 @@ export const NAV_GROUPS = [
 const ALL_TABS = NAV_GROUPS.flatMap((g) => g.items);
 
 export default function Dashboard() {
-  const { store, logout, refreshStore } = useAuth();
+  const { store, token, logout, refreshStore } = useAuth();
   const [tab, setTab] = useState("home");
   const [mode, setMode] = useState(() => getCatalogMode());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [productCount, setProductCount] = useState(null);
 
   useEffect(() => {
     function sync() { setMode(getCatalogMode()); }
@@ -94,10 +98,39 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  // Kept fresh on every tab switch so the setup nudge below reflects reality
+  // right after e.g. a CSV import, without requiring a full page reload.
+  useEffect(() => {
+    let cancelled = false;
+    if (!store?.id || !token) return;
+    api(`/api/products/manage/${encodeURIComponent(store.id)}`, { token })
+      .then((data) => { if (!cancelled) setProductCount((data.products || []).length); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [tab, store?.id, token]);
+
   function goTab(id) {
     if (id === "embed" && hideEmbed) { setTab("store"); return; }
     setTab(id);
   }
+
+  const wooConnected = !!store?.wooConnected;
+  const setupSteps = [
+    { label: "Name your store", done: !store?.needsSetup, goTo: "store" },
+    { label: "Add products to your catalog", done: (productCount ?? 0) > 0, goTo: "products" },
+    {
+      label: wooConnected ? "Connect WooCommerce plugin" : "Install widget on your site",
+      done: isWidgetInstalled(store),
+      goTo: hideEmbed ? "store" : "embed",
+    },
+    {
+      label: "Enable widget for shoppers",
+      done: isWidgetEnabled(store) && isWidgetInstalled(store),
+      goTo: "settings",
+    },
+  ];
+  const nextStep = setupSteps.find((s) => !s.done);
+  const completedSteps = setupSteps.filter((s) => s.done).length;
 
   const activeTab =
     ALL_TABS.find((t) => t.id === tab) ||
@@ -142,6 +175,17 @@ export default function Dashboard() {
             onGoBilling={() => goTab("billing")}
             onLogout={logout}
           />
+
+          {tab !== "home" && nextStep && (
+            <div className="sd-setup-nudge-wrap">
+              <SetupNudge
+                label={nextStep.label}
+                stepNumber={completedSteps + 1}
+                totalSteps={setupSteps.length}
+                onGo={() => goTab(nextStep.goTo)}
+              />
+            </div>
+          )}
 
           <div className="sd-content">{renderTab()}</div>
         </div>

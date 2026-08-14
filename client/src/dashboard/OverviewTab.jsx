@@ -52,25 +52,31 @@ export default function OverviewTab({ store, onGoTab }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Fetched independently — analytics failing (or being slow) must never zero out
+    // an already-known product count, and vice versa. Promise.all would reject the
+    // whole batch on either failure, silently resetting the other to its fallback.
     (async () => {
       try {
-        const [analyticsRes, productsRes] = await Promise.all([
-          api("/api/analytics", { token }),
-          store?.id
-            ? api(`/api/products/manage/${encodeURIComponent(store.id)}`, { token })
-            : Promise.resolve({ products: [] }),
-        ]);
-        if (!cancelled) {
-          setAnalytics(analyticsRes);
-          setProductCount((productsRes.products || []).length);
-        }
+        const analyticsRes = await api("/api/analytics", { token });
+        if (!cancelled) setAnalytics(analyticsRes);
       } catch {
-        if (!cancelled) {
-          setAnalytics({ totalRecommendations: 0, recent: [] });
-          setProductCount(0);
-        }
+        if (!cancelled) setAnalytics({ totalRecommendations: 0, recent: [] });
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    })();
+    (async () => {
+      if (!store?.id) {
+        setProductCount(0);
+        return;
+      }
+      try {
+        const productsRes = await api(`/api/products/manage/${encodeURIComponent(store.id)}`, { token });
+        if (!cancelled) setProductCount((productsRes.products || []).length);
+      } catch {
+        // Leave productCount as-is on failure rather than forcing it to 0 — an
+        // existing correct value (or the initial null/"still loading") is safer
+        // than reporting "no products" when we simply couldn't refetch.
       }
     })();
     return () => { cancelled = true; };
@@ -166,7 +172,7 @@ export default function OverviewTab({ store, onGoTab }) {
             <Clock size={20} strokeWidth={2} />
             <p>
               {trialDays > 0
-                ? `Your trial ends in ${trialDays} day${trialDays === 1 ? "" : "s"}.`
+                ? `Your trial ends in ${trialDays} day${trialDays === 1 ? "" : "s"} — on ${new Date(store.trialEnds).toLocaleDateString(undefined, { month: "long", day: "numeric" })}.`
                 : "Your trial has ended."}{" "}
               Upgrade to keep your widget running without interruption.
             </p>

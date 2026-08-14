@@ -72,10 +72,13 @@ export default function Topbar({ title, store, onOpenMenu, onGoAccount, onGoHelp
             type="button"
             className="sd-topbar-trial"
             onClick={onGoBilling}
+            title={store?.trialEnds ? `Trial ends ${new Date(store.trialEnds).toLocaleString()}` : undefined}
             style={{ cursor: 'pointer', border: 'none', fontFamily: 'inherit' }}
           >
             <Clock size={13} strokeWidth={2.5} />
-            {trialDays > 0 ? `${trialDays}d trial left` : 'Trial ended'}
+            {trialDays > 0
+              ? `${trialDays}d trial left (ends ${new Date(store.trialEnds).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})`
+              : 'Trial ended'}
           </button>
         )}
 

@@ -299,6 +299,14 @@ export default function AdminStores() {
               >
                 Extend trial +7d
               </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                title="Restarts this store's trial from today using the current global trial length"
+                onClick={() => act('/api/admin/reset-trial', { storeId: manage.id })}
+              >
+                Reset trial to current default
+              </button>
             </div>
 
             {/* Admin notes */}

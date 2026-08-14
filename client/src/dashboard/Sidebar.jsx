@@ -79,8 +79,8 @@ export default function Sidebar({ groups, tab, onSelect, store, onLogout, open, 
               {isTrial ? 'Trial' : store?.plan || 'Trial'}
             </span>
             {daysLeft !== null && (
-              <span className="sd-sidebar-days">
-                {daysLeft}d left
+              <span className="sd-sidebar-days" title={`Ends ${new Date(planEnds).toLocaleDateString()}`}>
+                {daysLeft}d left · ends {new Date(planEnds).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
               </span>
             )}
           </div>

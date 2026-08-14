@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, ExternalLink, Code2, Zap, ZapOff, ListChecks, ShoppingBag, MessageCircle, Bot, BarChart3 } from "lucide-react";
-import { API_URL } from "../lib/api";
+import { Copy, Check, ExternalLink, Code2, Zap, ZapOff, ListChecks, ShoppingBag, MessageCircle, Bot, BarChart3, RotateCcw } from "lucide-react";
+import { api, API_URL } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { WIDGET_LIVE_KEY, isWidgetInstalled } from "../lib/widgetStatus";
 import PageHeader from "./ui/PageHeader";
@@ -16,9 +16,11 @@ const STEPS = [
 function STEPS_KEY(storeId) { return `bb_embed_steps_${storeId}`; }
 
 export default function EmbedTab({ store }) {
-  const { refreshStore } = useAuth();
+  const { token, refreshStore } = useAuth();
   const [copied, setCopied] = useState(false);
   const [isLive, setIsLive] = useState(() => isWidgetInstalled(store));
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   // Re-sync whenever the server reports a change (e.g. after refreshStore() resolves
   // or if the parent re-renders with a freshly-fetched store object).
@@ -57,6 +59,23 @@ export default function EmbedTab({ store }) {
     localStorage.setItem(WIDGET_LIVE_KEY(store?.id), "0");
     setIsLive(false);
     window.dispatchEvent(new Event("bb-widget-live-change"));
+  }
+
+  async function resetDetection() {
+    if (!window.confirm("Clear the \"widget detected\" status for this store? Use this if it says installed but you haven't actually put the script on your site.")) return;
+    setResetting(true);
+    setResetError("");
+    try {
+      await api("/api/widget-reset", { method: "POST", token });
+      localStorage.setItem(WIDGET_LIVE_KEY(store?.id), "0");
+      setIsLive(false);
+      window.dispatchEvent(new Event("bb-widget-live-change"));
+      await refreshStore?.();
+    } catch (err) {
+      setResetError(err.message || "Could not reset detection");
+    } finally {
+      setResetting(false);
+    }
   }
 
   function toggleStep(id) {
@@ -102,7 +121,12 @@ export default function EmbedTab({ store }) {
             </span>
           </>
         )}
-        {isLive ? (
+        {serverDetected ? (
+          <button type="button" className="sd-live-toggle-btn" onClick={resetDetection} disabled={resetting}>
+            <RotateCcw size={13} style={{ marginRight: 4, verticalAlign: -2 }} />
+            {resetting ? "Resetting…" : "Not accurate? Reset"}
+          </button>
+        ) : isLive ? (
           <button type="button" className="sd-live-toggle-btn" onClick={markOffline}>
             Undo confirmation
           </button>
@@ -112,6 +136,9 @@ export default function EmbedTab({ store }) {
           </button>
         )}
       </div>
+      {resetError && (
+        <p className="muted tiny" style={{ color: "#b91c1c", marginTop: "-0.5rem" }}>{resetError}</p>
+      )}
 
       <Card title="Embed snippet" icon={Code2}>
         <p className="muted" style={{ marginTop: 0 }}>

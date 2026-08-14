@@ -200,6 +200,27 @@ router.post('/widget-ping/:storeId', async (req, res) => {
   }
 })
 
+// POST /api/widget-reset — clears the "installed" beacon for the caller's own store.
+// Needed because widget_installed_at is a one-time "first seen" stamp (COALESCE) that
+// never clears itself — if it was ever set by mistake (e.g. before the preview-page fix),
+// there was previously no way for a store owner to un-stick it.
+router.post('/widget-reset', authStore, async (req, res) => {
+  try {
+    const storeId = req.user.storeId
+    await getDb().execute({
+      sql: `UPDATE stores
+            SET widget_installed_at = NULL, widget_last_seen = NULL, updated_at = datetime('now')
+            WHERE id = ?`,
+      args: [storeId],
+    })
+    const updated = await getStoreById(storeId)
+    res.json({ success: true, store: publicStore(updated) })
+  } catch (err) {
+    console.error('[widget-reset]', err)
+    res.status(500).json({ success: false, error: 'Could not reset widget detection' })
+  }
+})
+
 // PUT /api/widget-settings
 router.put('/widget-settings', authStore, async (req, res) => {
   try {
