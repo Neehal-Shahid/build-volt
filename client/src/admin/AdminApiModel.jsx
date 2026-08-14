@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  Bot, Zap, DollarSign, CheckCircle, Save, Info, TrendingUp
+  Bot, Zap, DollarSign, Save, Info, TrendingUp
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
@@ -43,15 +43,7 @@ export default function AdminApiModel() {
   const [customModelId, setCustomModelId] = useState('')
   const [form, setForm] = useState({
     max_tokens: '4096',
-    limit_starter: '500',
-    limit_growth: '2000',
-    limit_pro: '5000',
-    trial_daily_limit: '3',
     usd_to_pkr: '280',
-    product_limit_trial: '30',
-    product_limit_starter: '200',
-    product_limit_growth: '1000',
-    product_limit_pro: '5000',
   })
   const [busy, setBusy] = useState(false)
 
@@ -70,15 +62,7 @@ export default function AdminApiModel() {
       }
       setForm({
         max_tokens: String(c.max_tokens || '4096'),
-        limit_starter: String(c.limit_starter || '500'),
-        limit_growth: String(c.limit_growth || '2000'),
-        limit_pro: String(c.limit_pro || '5000'),
-        trial_daily_limit: String(c.trial_daily_limit || '3'),
         usd_to_pkr: String(c.usd_to_pkr || '280'),
-        product_limit_trial: String(c.product_limit_trial || '30'),
-        product_limit_starter: String(c.product_limit_starter || '200'),
-        product_limit_growth: String(c.product_limit_growth || '1000'),
-        product_limit_pro: String(c.product_limit_pro || '5000'),
       })
     } catch (err) {
       toast(err.message, 'error')
@@ -97,7 +81,7 @@ export default function AdminApiModel() {
         method: 'POST', token,
         body: { ...form, anthropic_model: modelId },
       })
-      toast('Model & limits saved', 'success')
+      toast('Model settings saved', 'success')
       await load()
     } catch (err) { toast(err.message, 'error') }
     finally { setBusy(false) }
@@ -119,8 +103,16 @@ export default function AdminApiModel() {
       <div className="ad-page-header">
         <div>
           <h2 className="ad-page-title">API &amp; Model</h2>
-          <p className="ad-page-desc">Anthropic AI usage stats, model selector, and per-plan limits.</p>
+          <p className="ad-page-desc">Which AI model BuildBot uses, and what it's costing you. Plan pricing, recommendation limits, and product limits live in Settings.</p>
         </div>
+      </div>
+
+      <div className="ad-notice info" style={{ marginBottom: '1.25rem' }}>
+        <Info size={15} style={{ flex: 'none', marginTop: 1 }} />
+        <span>
+          Looking for trial length, plan pricing, or per-plan limits? Those live in the{' '}
+          <strong>Settings</strong> tab in the sidebar — this page is only the AI model and its usage cost.
+        </span>
       </div>
 
       {/* Usage stat cards */}
@@ -222,64 +214,15 @@ export default function AdminApiModel() {
           )}
         </div>
 
-        {/* Limits */}
+        {/* Request settings */}
         <div className="sd-card" style={{ marginBottom: '1.25rem' }}>
           <div className="sd-card-title">
             <Zap size={17} />
-            Token &amp; Plan Limits
+            Request Settings
           </div>
-
           <div className="sd-field">
             <label className="sd-field-label">Max Tokens per Request</label>
             <input type="number" min="256" max="8192" {...field('max_tokens')} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <div className="sd-field">
-              <label className="sd-field-label">Monthly Limit — Starter</label>
-              <input type="number" min="1" {...field('limit_starter')} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-field-label">Monthly Limit — Growth</label>
-              <input type="number" min="1" {...field('limit_growth')} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-field-label">Monthly Limit — Pro</label>
-              <input type="number" min="1" {...field('limit_pro')} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-field-label">Trial Daily Limit</label>
-              <input type="number" min="1" {...field('trial_daily_limit')} />
-            </div>
-          </div>
-        </div>
-
-        {/* Product catalog limits */}
-        <div className="sd-card" style={{ marginBottom: '1.25rem' }}>
-          <div className="sd-card-title">
-            <Zap size={17} />
-            Product Catalog Limits
-          </div>
-          <p className="muted tiny" style={{ marginTop: 0 }}>
-            Max products a store can hold, by plan. Applies to manual/CSV catalogs only — WooCommerce sync has its own 5,000-product cap.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <div className="sd-field">
-              <label className="sd-field-label">Trial</label>
-              <input type="number" min="1" {...field('product_limit_trial')} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-field-label">Starter</label>
-              <input type="number" min="1" {...field('product_limit_starter')} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-field-label">Growth</label>
-              <input type="number" min="1" {...field('product_limit_growth')} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-field-label">Pro</label>
-              <input type="number" min="1" {...field('product_limit_pro')} />
-            </div>
           </div>
         </div>
 
@@ -301,7 +244,7 @@ export default function AdminApiModel() {
         <button className="btn" type="submit" disabled={busy}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
           <Save size={15} />
-          {busy ? 'Saving…' : 'Save Model & Limits'}
+          {busy ? 'Saving…' : 'Save Model Settings'}
         </button>
       </form>
     </div>
