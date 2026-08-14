@@ -112,6 +112,14 @@ router.put('/store-setup', authStore, async (req, res) => {
   }
 })
 
+function safeHost(url) {
+  try {
+    return new URL(url).host || null
+  } catch {
+    return null
+  }
+}
+
 function parsePresets(raw) {
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
@@ -168,14 +176,22 @@ router.post('/widget-ping/:storeId', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Store not found' })
     }
 
-    await getDb().execute({
-      sql: `UPDATE stores
-            SET widget_last_seen = datetime('now'),
-                widget_installed_at = COALESCE(widget_installed_at, datetime('now')),
-                updated_at = datetime('now')
-            WHERE id = ?`,
-      args: [storeId],
-    })
+    // Ignore pings whose Origin/Referer is our own API/app host — those come from
+    // dashboard previews (e.g. /widget-test), not a real install on the store's site.
+    const selfHosts = [req.get('host'), safeHost(process.env.APP_URL)].filter(Boolean)
+    const callerHost = safeHost(req.headers.origin || req.headers.referer)
+    const isSelfOrigin = callerHost && selfHosts.includes(callerHost)
+
+    if (!isSelfOrigin) {
+      await getDb().execute({
+        sql: `UPDATE stores
+              SET widget_last_seen = datetime('now'),
+                  widget_installed_at = COALESCE(widget_installed_at, datetime('now')),
+                  updated_at = datetime('now')
+              WHERE id = ?`,
+        args: [storeId],
+      })
+    }
 
     res.json({ success: true })
   } catch (err) {

@@ -8,6 +8,7 @@ import {
   normalizeCategory,
   mapProduct,
   parseCsv,
+  parseCsvHeaders,
 } from '../lib/products.js'
 
 const router = Router()
@@ -63,6 +64,83 @@ router.get('/products/manage/:storeId', authStore, async (req, res) => {
   } catch (err) {
     console.error('[products manage]', err)
     res.status(500).json({ success: false, error: 'Could not load products' })
+  }
+})
+
+// Bulk actions (must be before /products/:storeId so "bulk-*" isn't read as a storeId)
+
+router.post('/products/bulk-delete', authStore, async (req, res) => {
+  try {
+    const storeId = req.user.storeId
+    const store = await getStoreById(storeId)
+    if (store?.woo_connected) {
+      return res.status(403).json({
+        success: false,
+        error: 'Products are managed by WooCommerce for this store',
+      })
+    }
+    const ids = Array.isArray(req.body.ids)
+      ? [...new Set(req.body.ids.map(Number).filter(Number.isFinite))]
+      : []
+    if (!ids.length) {
+      return res.status(400).json({ success: false, error: 'No product ids provided' })
+    }
+
+    const placeholders = ids.map(() => '?').join(',')
+    const result = await getDb().execute({
+      sql: `DELETE FROM products WHERE store_id = ? AND id IN (${placeholders})`,
+      args: [storeId, ...ids],
+    })
+    await touchCatalog(storeId)
+    res.json({ success: true, deleted: Number(result.rowsAffected ?? ids.length) })
+  } catch (err) {
+    console.error('[products bulk-delete]', err)
+    res.status(500).json({ success: false, error: 'Bulk delete failed' })
+  }
+})
+
+router.post('/products/bulk-stock', authStore, async (req, res) => {
+  try {
+    const storeId = req.user.storeId
+    const store = await getStoreById(storeId)
+    if (store?.woo_connected) {
+      return res.status(403).json({
+        success: false,
+        error: 'Products are managed by WooCommerce for this store',
+      })
+    }
+    const ids = Array.isArray(req.body.ids)
+      ? [...new Set(req.body.ids.map(Number).filter(Number.isFinite))]
+      : []
+    if (!ids.length) {
+      return res.status(400).json({ success: false, error: 'No product ids provided' })
+    }
+    const stock = req.body.stock ? 1 : 0
+
+    const placeholders = ids.map(() => '?').join(',')
+    const result = await getDb().execute({
+      sql: `UPDATE products SET stock = ?, updated_at = datetime('now') WHERE store_id = ? AND id IN (${placeholders})`,
+      args: [stock, storeId, ...ids],
+    })
+    await touchCatalog(storeId)
+    res.json({ success: true, updated: Number(result.rowsAffected ?? ids.length) })
+  } catch (err) {
+    console.error('[products bulk-stock]', err)
+    res.status(500).json({ success: false, error: 'Bulk stock update failed' })
+  }
+})
+
+// Preview a CSV's column headers, for the import column-mapping UI
+router.post('/products/csv-headers', authStore, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'CSV file is required' })
+    }
+    const headers = parseCsvHeaders(req.file.buffer.toString('utf8'))
+    res.json({ success: true, headers })
+  } catch (err) {
+    console.error('[products csv-headers]', err)
+    res.status(500).json({ success: false, error: 'Could not read CSV headers' })
   }
 })
 
@@ -271,7 +349,19 @@ router.delete('/product/:id', authStore, async (req, res) => {
   }
 })
 
-// CSV upload — field name "file"
+async function insertProductRow(db, storeId, row) {
+  await db.execute({
+    sql: `INSERT INTO products (store_id, name, category, price, stock, description, sku)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    args: [storeId, row.name, row.category, row.price, row.stock ? 1 : 0, row.description, row.sku],
+  })
+}
+
+// CSV upload — field name "file". Also accepts:
+//   mode: 'add' (default, always inserts) | 'merge' (update matches by SKU/name+category,
+//         insert the rest) | 'replace' (wipe the store's catalog, then insert)
+//   columnMap: JSON string of { name, category, price, stock, description, sku } -> CSV header name,
+//              for stores whose CSV headers don't match BuildBot's built-in aliases
 router.post('/upload', authStore, upload.single('file'), async (req, res) => {
   try {
     const storeId = req.user.storeId
@@ -286,10 +376,20 @@ router.post('/upload', authStore, upload.single('file'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'CSV file is required' })
     }
 
+    const mode = ['add', 'merge', 'replace'].includes(req.body.mode) ? req.body.mode : 'add'
+    let columnMap = null
+    if (req.body.columnMap) {
+      try {
+        columnMap = JSON.parse(req.body.columnMap)
+      } catch {
+        columnMap = null
+      }
+    }
+
     const text = req.file.buffer.toString('utf8')
     let rows
     try {
-      rows = parseCsv(text)
+      rows = parseCsv(text, columnMap)
     } catch (parseErr) {
       return res.status(400).json({ success: false, error: parseErr.message })
     }
@@ -297,8 +397,79 @@ router.post('/upload', authStore, upload.single('file'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'No valid product rows found in CSV' })
     }
 
+    const db = getDb()
     const config = await getPlatformConfig()
     const limit = productLimit(store, config)
+
+    if (mode === 'replace') {
+      if (rows.length > limit) {
+        return res.status(403).json({
+          success: false,
+          error: `This CSV has ${rows.length} rows, over the ${store?.plan || 'trial'} plan limit of ${limit}. Upgrade to import more.`,
+        })
+      }
+      await db.execute({ sql: 'DELETE FROM products WHERE store_id = ?', args: [storeId] })
+      for (const row of rows) await insertProductRow(db, storeId, row)
+      await touchCatalog(storeId)
+      return res.json({
+        success: true,
+        imported: rows.length,
+        replaced: true,
+        message: `Replaced catalog with ${rows.length} product${rows.length === 1 ? '' : 's'}`,
+      })
+    }
+
+    if (mode === 'merge') {
+      const existingRows = (
+        await db.execute({
+          sql: 'SELECT id, sku, name, category FROM products WHERE store_id = ?',
+          args: [storeId],
+        })
+      ).rows
+      const bySku = new Map()
+      const byNameCat = new Map()
+      for (const p of existingRows) {
+        if (p.sku) bySku.set(String(p.sku).toLowerCase(), p.id)
+        byNameCat.set(`${String(p.name).toLowerCase()}::${String(p.category).toLowerCase()}`, p.id)
+      }
+
+      const newRows = []
+      let updated = 0
+      for (const row of rows) {
+        const matchId = row.sku && bySku.has(row.sku.toLowerCase())
+          ? bySku.get(row.sku.toLowerCase())
+          : byNameCat.get(`${row.name.toLowerCase()}::${row.category.toLowerCase()}`)
+
+        if (matchId) {
+          await db.execute({
+            sql: `UPDATE products SET name = ?, category = ?, price = ?, stock = ?, description = ?, sku = ?,
+                  updated_at = datetime('now') WHERE id = ? AND store_id = ?`,
+            args: [row.name, row.category, row.price, row.stock ? 1 : 0, row.description, row.sku, matchId, storeId],
+          })
+          updated++
+        } else {
+          newRows.push(row)
+        }
+      }
+
+      if (existingRows.length + newRows.length > limit) {
+        return res.status(403).json({
+          success: false,
+          error: `Importing would exceed the product limit for the ${store?.plan || 'trial'} plan (${existingRows.length}/${limit} used, ${newRows.length} new rows). Upgrade to import more.`,
+        })
+      }
+
+      for (const row of newRows) await insertProductRow(db, storeId, row)
+      await touchCatalog(storeId)
+      return res.json({
+        success: true,
+        imported: newRows.length,
+        updated,
+        message: `Updated ${updated} existing product${updated === 1 ? '' : 's'}, added ${newRows.length} new`,
+      })
+    }
+
+    // mode === 'add' (legacy default — always inserts as new rows)
     const existing = await countProducts(storeId)
     if (existing + rows.length > limit) {
       return res.status(403).json({
@@ -306,31 +477,13 @@ router.post('/upload', authStore, upload.single('file'), async (req, res) => {
         error: `This CSV would exceed the product limit for the ${store?.plan || 'trial'} plan (${existing}/${limit} used, ${rows.length} rows in file). Upgrade to import more.`,
       })
     }
-
-    const db = getDb()
-    let imported = 0
-    for (const row of rows) {
-      await db.execute({
-        sql: `INSERT INTO products (store_id, name, category, price, stock, description, sku)
-              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        args: [
-          storeId,
-          row.name,
-          row.category,
-          row.price,
-          row.stock ? 1 : 0,
-          row.description,
-          row.sku,
-        ],
-      })
-      imported++
-    }
+    for (const row of rows) await insertProductRow(db, storeId, row)
     await touchCatalog(storeId)
 
     res.json({
       success: true,
-      imported,
-      message: `Imported ${imported} product${imported === 1 ? '' : 's'}`,
+      imported: rows.length,
+      message: `Imported ${rows.length} product${rows.length === 1 ? '' : 's'}`,
     })
   } catch (err) {
     console.error('[upload]', err)

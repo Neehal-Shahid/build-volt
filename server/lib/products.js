@@ -41,7 +41,29 @@ export function mapProduct(row) {
   }
 }
 
-export function parseCsv(text) {
+// Field aliases \u2014 covers plain BuildBot exports as well as common WooCommerce/
+// Shopify CSV export headers, so a store's existing export usually just works.
+const FIELD_ALIASES = {
+  name: ['name', 'product', 'title', 'product name', 'item name'],
+  category: ['category', 'type', 'cat', 'categories', 'product category'],
+  price: ['price', 'cost', 'amount', 'regular price', 'unit price', 'sale price'],
+  stock: ['stock', 'in_stock', 'instock', 'available', 'in stock?', 'stock status', 'stock quantity', 'quantity'],
+  description: ['description', 'desc', 'details', 'short description', 'long description'],
+  sku: ['sku', 'code', 'item code', 'product code'],
+}
+
+export function parseCsvHeaders(text) {
+  const firstLine = String(text || '')
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)[0] || ''
+  return splitCsvLine(firstLine).map((h) => h.trim()).filter(Boolean)
+}
+
+/**
+ * @param {string} text raw CSV file contents
+ * @param {Record<string,string>} [columnMap] optional explicit field -> CSV header name overrides
+ */
+export function parseCsv(text, columnMap) {
   const lines = String(text || '')
     .replace(/^\uFEFF/, '')
     .split(/\r?\n/)
@@ -49,16 +71,27 @@ export function parseCsv(text) {
     .filter(Boolean)
   if (lines.length < 2) return []
 
-  const headers = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase())
-  const nameIdx = headers.findIndex((h) => ['name', 'product', 'title'].includes(h))
-  const catIdx = headers.findIndex((h) => ['category', 'type', 'cat'].includes(h))
-  const priceIdx = headers.findIndex((h) => ['price', 'cost', 'amount'].includes(h))
-  const stockIdx = headers.findIndex((h) => ['stock', 'in_stock', 'instock', 'available'].includes(h))
-  const descIdx = headers.findIndex((h) => ['description', 'desc', 'details'].includes(h))
-  const skuIdx = headers.findIndex((h) => ['sku', 'code'].includes(h))
+  const headers = splitCsvLine(lines[0]).map((h) => h.trim())
+  const headersLower = headers.map((h) => h.toLowerCase())
+
+  function resolveIdx(field) {
+    const mapped = columnMap && columnMap[field]
+    if (mapped) {
+      const idx = headersLower.findIndex((h) => h === String(mapped).trim().toLowerCase())
+      if (idx >= 0) return idx
+    }
+    return headersLower.findIndex((h) => FIELD_ALIASES[field].includes(h))
+  }
+
+  const nameIdx = resolveIdx('name')
+  const catIdx = resolveIdx('category')
+  const priceIdx = resolveIdx('price')
+  const stockIdx = resolveIdx('stock')
+  const descIdx = resolveIdx('description')
+  const skuIdx = resolveIdx('sku')
 
   if (nameIdx < 0 || priceIdx < 0) {
-    throw new Error('CSV must include name and price columns')
+    throw new Error('CSV must include a name column and a price column (use column mapping if your headers differ)')
   }
 
   const rows = []
@@ -68,14 +101,15 @@ export function parseCsv(text) {
     if (!name) continue
     const price = Number(String(cols[priceIdx] || '').replace(/[^0-9.]/g, ''))
     if (!Number.isFinite(price) || price < 0) continue
-    const stockRaw = stockIdx >= 0 ? String(cols[stockIdx] || '').trim().toLowerCase() : '1'
-    const stock =
-      stockRaw === '' ||
-      stockRaw === '1' ||
-      stockRaw === 'true' ||
-      stockRaw === 'yes' ||
-      stockRaw === 'in stock' ||
-      stockRaw === 'instock'
+
+    let stock = true
+    if (stockIdx >= 0) {
+      const raw = String(cols[stockIdx] || '').trim().toLowerCase()
+      if (raw === '') stock = true
+      else if (/^-?\d+(\.\d+)?$/.test(raw)) stock = Number(raw) > 0
+      else stock = ['1', 'true', 'yes', 'y', 'in stock', 'instock'].includes(raw)
+    }
+
     rows.push({
       name,
       category: normalizeCategory(catIdx >= 0 ? cols[catIdx] : 'Other'),

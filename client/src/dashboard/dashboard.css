@@ -1937,4 +1937,141 @@ button.sd-step-item:hover {
 
 .sd-text-link:hover { color: var(--navy); }
 
+/* —— Products: row selection + bulk action bar —— */
+.sd-th-check {
+    width: 36px;
+}
+
+.sd-table tbody tr.is-selected {
+    background: var(--accent-soft);
+}
+
+.sd-bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    margin-bottom: 0.85rem;
+    background: var(--accent-soft);
+    border: 1px solid rgba(42, 94, 232, 0.2);
+    border-radius: 10px;
+}
+
+.sd-bulk-count {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--blue);
+}
+
+.sd-bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-sm {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
+    box-shadow: none;
+}
+
+.btn-ghost.danger {
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+.btn-ghost.danger:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+}
+
+/* —— CSV import modal —— */
+.sd-csv-modal {
+    width: min(560px, 100%);
+}
+
+.sd-import-modes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sd-import-mode {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.65rem 0.8rem;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    font-weight: 400;
+}
+
+.sd-import-mode:hover {
+    border-color: rgba(42, 94, 232, 0.35);
+}
+
+.sd-import-mode.active {
+    border-color: var(--blue);
+    background: var(--accent-soft);
+}
+
+.sd-import-mode input {
+    margin-top: 0.2rem;
+    flex: none;
+}
+
+.sd-import-mode strong {
+    display: block;
+    font-size: 0.87rem;
+    color: var(--navy);
+    margin-bottom: 0.15rem;
+}
+
+.sd-import-mode p {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.sd-csv-map-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+
+.sd-csv-map-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1.4fr;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sd-csv-map-field {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--navy);
+}
+
+.sd-csv-map-required {
+    color: #dc2626;
+    margin-left: 0.15rem;
+}
+
+.sd-csv-map-row select {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--navy);
+    background: var(--white);
+    width: 100%;
+}
+
 

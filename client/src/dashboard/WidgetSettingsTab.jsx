@@ -26,9 +26,13 @@ export default function WidgetSettingsTab({ store }) {
   const [busyToggle, setBusyToggle] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  // Raw text for the budget-presets field, kept separate from the parsed number
+  // array so typing a comma or a new digit never gets clobbered by re-parsing.
+  const [budgetPresetsText, setBudgetPresetsText] = useState("50000, 80000, 120000, 200000");
 
   useEffect(() => {
     if (!store) return;
+    const presets = store.budgetPresets || [50000, 80000, 120000, 200000];
     setForm({
       brandColor: store.brandColor || "#2A5EE8",
       currency: store.currency || "PKR",
@@ -36,9 +40,17 @@ export default function WidgetSettingsTab({ store }) {
       welcomeMsg: store.welcomeMsg || "",
       buttonText: store.buttonText || "Get Started",
       widgetEnabled: store.widgetEnabled !== false,
-      budgetPresets: store.budgetPresets || [50000, 80000, 120000, 200000],
+      budgetPresets: presets,
     });
+    setBudgetPresetsText(presets.join(", "));
   }, [store]);
+
+  function parseBudgetPresetsText(text) {
+    return text
+      .split(",")
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0);
+  }
 
   const widgetStatus = getWidgetStatus(store);
   const paused = isWidgetPaused(store);
@@ -46,6 +58,11 @@ export default function WidgetSettingsTab({ store }) {
 
   async function saveAll(e) {
     e.preventDefault();
+    const budgetPresets = parseBudgetPresetsText(budgetPresetsText);
+    if (!budgetPresets.length) {
+      setError("Budget presets must have at least one positive number");
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -53,9 +70,11 @@ export default function WidgetSettingsTab({ store }) {
       const data = await api("/api/widget-settings", {
         method: "PUT",
         token,
-        body: { ...form, widgetBg: PANEL_BG },
+        body: { ...form, budgetPresets, widgetBg: PANEL_BG },
       });
       if (data.store) persistSession(token, data.store);
+      setForm((f) => ({ ...f, budgetPresets }));
+      setBudgetPresetsText(budgetPresets.join(", "));
       setMessage("Widget settings saved");
     } catch (err) {
       setError(err.message || "Save failed");
@@ -223,13 +242,11 @@ export default function WidgetSettingsTab({ store }) {
             <label className="sd-field">
               <span className="sd-field-label">Budget presets (PKR)</span>
               <input
-                value={(form.budgetPresets || []).join(', ')}
-                onChange={(e) => {
-                  const nums = e.target.value
-                    .split(',')
-                    .map(s => Number(s.trim()))
-                    .filter(n => Number.isFinite(n) && n > 0);
-                  if (nums.length > 0) setForm(f => ({ ...f, budgetPresets: nums }));
+                value={budgetPresetsText}
+                onChange={(e) => setBudgetPresetsText(e.target.value)}
+                onBlur={() => {
+                  const nums = parseBudgetPresetsText(budgetPresetsText);
+                  if (nums.length > 0) setBudgetPresetsText(nums.join(", "));
                 }}
                 placeholder="50000, 80000, 120000, 200000"
               />

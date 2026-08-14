@@ -15,6 +15,9 @@
 
   var storeId = script.getAttribute('data-store-id')
   if (!storeId) return
+  // Preview pages (the dashboard's own /widget-test page) set this so we never
+  // report a false "installed" ping just because someone previewed the widget.
+  var isPreview = script.getAttribute('data-preview') === '1'
 
   var origin
   try {
@@ -137,6 +140,7 @@
   }
 
   function sendInstallPing() {
+    if (isPreview) return
     try {
       fetch(API + '/api/widget-ping/' + encodeURIComponent(storeId), {
         method: 'POST',

@@ -46,11 +46,16 @@ export async function api(path, { method = 'GET', body, token, headers } = {}) {
 }
 
 /** Multipart upload (do not set Content-Type — browser sets boundary). */
-export async function apiUpload(path, { file, fieldName = 'file', token } = {}) {
+export async function apiUpload(path, { file, fieldName = 'file', fields, token } = {}) {
   setLoading(true)
   try {
     const form = new FormData()
     form.append(fieldName, file)
+    if (fields) {
+      for (const [key, value] of Object.entries(fields)) {
+        if (value !== undefined && value !== null) form.append(key, value)
+      }
+    }
     const res = await fetch(`${API_URL}${path}`, {
       method: 'POST',
       headers: {

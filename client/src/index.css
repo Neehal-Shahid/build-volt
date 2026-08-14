@@ -534,6 +534,16 @@ code {
     cursor: pointer;
 }
 
+.file-btn.is-busy {
+    opacity: 0.7;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn-spinner {
+    animation: global-loading-spin 0.8s linear infinite;
+}
+
 .modal-backdrop {
     position: fixed;
     inset: 0;

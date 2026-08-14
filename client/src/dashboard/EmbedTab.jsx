@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, ExternalLink, Code2, Zap, ZapOff, ListChecks } from "lucide-react";
+import { Copy, Check, ExternalLink, Code2, Zap, ZapOff, ListChecks, ShoppingBag, MessageCircle, Bot, BarChart3 } from "lucide-react";
 import { API_URL } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { WIDGET_LIVE_KEY, isWidgetInstalled } from "../lib/widgetStatus";
@@ -176,13 +176,15 @@ export default function EmbedTab({ store }) {
       <Card title="What happens next">
         <div className="sd-how-grid">
           {[
-            { emoji: "🛍️", label: "Shopper visits your site", desc: "They see the BuildBot launcher button." },
-            { emoji: "💬", label: "Widget asks 3 questions", desc: "Purpose, budget, and preferences." },
-            { emoji: "🤖", label: "AI generates picks", desc: "Claude AI matches products to their answers." },
-            { emoji: "📊", label: "You see analytics", desc: "Every recommendation appears in your Analytics tab." },
+            { Icon: ShoppingBag, label: "Shopper visits your site", desc: "They see the BuildBot launcher button." },
+            { Icon: MessageCircle, label: "Widget asks 3 questions", desc: "Purpose, budget, and preferences." },
+            { Icon: Bot, label: "AI generates picks", desc: "Claude AI matches products to their answers." },
+            { Icon: BarChart3, label: "You see analytics", desc: "Every recommendation appears in your Analytics tab." },
           ].map((s) => (
             <div key={s.label} className="sd-how-step">
-              <span className="sd-how-icon" style={{ fontSize: "1.5rem" }}>{s.emoji}</span>
+              <span className="sd-how-icon">
+                <s.Icon size={20} strokeWidth={1.75} color="var(--blue)" />
+              </span>
               <strong>{s.label}</strong>
               <p>{s.desc}</p>
             </div>
