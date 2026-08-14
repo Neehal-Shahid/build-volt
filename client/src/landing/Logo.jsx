@@ -9,7 +9,7 @@ import darkLogo  from '../../Images/Logo-for-dark-bg.png'
  * @param {number}  height   - Image height in px (width auto-scales). Default 36.
  * @param {string}  className
  */
-export default function Logo({ dark = false, height = 36, className = '' }) {
+export default function Logo({ dark = false, height = 28, className = '' }) {
   return (
     <img
       src={dark ? darkLogo : lightLogo}

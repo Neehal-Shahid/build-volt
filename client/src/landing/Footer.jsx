@@ -15,7 +15,7 @@ export default function Footer() {
     <footer className="lp-footer">
       <div className="lp-container lp-footer-grid">
         <div className="lp-footer-brand">
-          <Logo dark />
+          <Logo />
           <p>
             The AI PC-build recommendation widget for parts retailers in
             Pakistan — embed it once, let it sell for you.
@@ -41,9 +41,6 @@ export default function Footer() {
             </li>
             <li>
               <Link to="/login">Store login</Link>
-            </li>
-            <li>
-              <Link to="/admin">Admin login</Link>
             </li>
           </ul>
         </div>

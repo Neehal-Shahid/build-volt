@@ -29,7 +29,7 @@ export default function AuthLayout({
 
         {/* Logo — light-text variant for dark panel */}
         <Link to="/" className="auth-panel-brand">
-          <Logo dark height={38} />
+          <Logo dark height={30} />
         </Link>
 
         {panel && (
@@ -57,7 +57,7 @@ export default function AuthLayout({
       <div className="auth-form-side">
         {/* Mobile header — light logo on white bg */}
         <Link to="/" className="auth-mobile-brand">
-          <Logo height={34} />
+          <Logo height={28} />
         </Link>
 
         <div className="auth-card">
