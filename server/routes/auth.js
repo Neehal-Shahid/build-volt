@@ -39,11 +39,13 @@ async function createVerifiedStoreFromPending(pending) {
   const now = new Date().toISOString()
   const trialEnds = daysFromNow(trialDays)
 
+  // widget_enabled starts on (1) so "install the script" is the only real step left —
+  // an invisible extra toggle to flip was the biggest source of onboarding confusion.
   await db.execute({
     sql: `INSERT INTO stores (
       id, email, password_hash, name, plan, trial_started_at, trial_ends,
-      active, email_verified, marketing_opt_in, tos_accepted_at, created_at, updated_at
-    ) VALUES (?, ?, ?, '', 'trial', ?, ?, 1, 1, ?, ?, ?, ?)`,
+      active, email_verified, marketing_opt_in, tos_accepted_at, widget_enabled, created_at, updated_at
+    ) VALUES (?, ?, ?, '', 'trial', ?, ?, 1, 1, ?, ?, 1, ?, ?)`,
     args: [
       storeId,
       pending.email,

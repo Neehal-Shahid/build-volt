@@ -16,7 +16,8 @@ import {
   validatePassword,
 } from '../lib/auth.js'
 import { normalizePaymentMode } from '../lib/paymentMode.js'
-import { sendEmail, adminPasswordResetEmailContent, paymentReceiptEmailContent, paymentRejectedEmailContent } from '../email.js'
+import { computePlanActivation } from '../lib/storePlan.js'
+import { sendEmail, adminPasswordResetEmailContent, paymentReceiptEmailContent, paymentRejectedEmailContent, paymentRefundedEmailContent } from '../email.js'
 import { logAdminAction } from '../lib/adminAudit.js'
 
 const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
@@ -591,7 +592,8 @@ router.post('/admin/approve-payment', authAdmin, async (req, res) => {
         .json({ success: false, error: 'Payment is not pending' })
     }
 
-    const planEnds = await daysFromNowIso(30)
+    const storeBefore = await getStoreById(payment.store_id)
+    const { planEnds, extended } = computePlanActivation(storeBefore, payment.plan)
     await db.execute({
       sql: `UPDATE payments SET status = 'approved', reviewed_at = datetime('now') WHERE id = ?`,
       args: [paymentId],
@@ -609,6 +611,7 @@ router.post('/admin/approve-payment', authAdmin, async (req, res) => {
         amount: payment.amount,
         method: payment.method || 'JazzCash / EasyPaisa',
         planEnds,
+        extended,
       })
       await sendEmail({
         to: store.email,
@@ -683,6 +686,67 @@ router.post('/admin/reject-payment', authAdmin, async (req, res) => {
   } catch (err) {
     console.error('[reject-payment]', err)
     res.status(500).json({ success: false, error: 'Could not reject payment' })
+  }
+})
+
+// Undo an already-approved payment (card or JazzCash/EasyPaisa) — deactivates the
+// store's plan immediately and notifies them. This is the admin's control over
+// instant-approve card payments: they can't block one before it activates (that's
+// the point of instant activation), but they can always undo it after the fact.
+router.post('/admin/refund-payment', authAdmin, async (req, res) => {
+  try {
+    const paymentId = Number(req.body.paymentId || req.body.id)
+    const reason = String(req.body.reason || '').trim()
+    const db = getDb()
+    const found = await db.execute({
+      sql: `SELECT * FROM payments WHERE id = ? LIMIT 1`,
+      args: [paymentId],
+    })
+    const payment = found.rows[0]
+    if (!payment)
+      return res.status(404).json({ success: false, error: 'Payment not found' })
+    if (payment.status !== 'approved') {
+      return res.status(400).json({ success: false, error: 'Only approved payments can be refunded' })
+    }
+
+    await db.execute({
+      sql: `UPDATE payments SET status = 'refunded', notes = ?, reviewed_at = datetime('now') WHERE id = ?`,
+      args: [reason || payment.notes || 'refunded', paymentId],
+    })
+    // End the plan immediately — reuses the same "plan lapsed" pause logic as a
+    // natural expiry, rather than inventing a separate refunded/suspended state.
+    await db.execute({
+      sql: `UPDATE stores SET plan_ends = datetime('now'), updated_at = datetime('now') WHERE id = ?`,
+      args: [payment.store_id],
+    })
+
+    const store = await getStoreById(payment.store_id)
+    if (store?.email) {
+      const refundedEmail = paymentRefundedEmailContent({
+        storeName: store.name,
+        plan: payment.plan,
+        amount: payment.amount,
+        reason,
+      })
+      await sendEmail({
+        to: store.email,
+        subject: refundedEmail.subject,
+        text: refundedEmail.text,
+        html: refundedEmail.html,
+        template: 'payment_refunded',
+      })
+    }
+
+    await logAdminAction(req, 'refund_payment', String(paymentId))
+    res.json({
+      success: true,
+      message: 'Payment refunded and plan deactivated',
+      store: mapStoreRow(store),
+      payment: mapPayment({ ...payment, status: 'refunded' }),
+    })
+  } catch (err) {
+    console.error('[refund-payment]', err)
+    res.status(500).json({ success: false, error: 'Could not refund payment' })
   }
 })
 

@@ -64,7 +64,7 @@ async function createTables() {
       active INTEGER DEFAULT 1,
       disabled INTEGER DEFAULT 0,
       email_verified INTEGER DEFAULT 0,
-      widget_enabled INTEGER DEFAULT 0,
+      widget_enabled INTEGER DEFAULT 1,
       brand_color TEXT DEFAULT '#2A5EE8',
       currency TEXT DEFAULT 'PKR',
       widget_title TEXT DEFAULT 'BuildBot',

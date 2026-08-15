@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { CreditCard, CheckCircle, XCircle, Clock, Smartphone, X } from 'lucide-react'
+import { CreditCard, CheckCircle, XCircle, Clock, Smartphone, Undo2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import { useToast } from './useToast'
@@ -9,6 +9,7 @@ const FILTERS = [
   { key: 'pending',  label: 'Pending'  },
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
+  { key: 'refunded', label: 'Refunded' },
   { key: 'all',      label: 'All'      },
 ]
 
@@ -36,6 +37,8 @@ export default function AdminPayments() {
   const [busyId, setBusyId] = useState(null)
   const [rejectTarget, setRejectTarget] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [refundTarget, setRefundTarget] = useState(null)
+  const [refundReason, setRefundReason] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -89,8 +92,25 @@ export default function AdminPayments() {
     finally { setBusyId(null) }
   }
 
+  function refund(id) {
+    const payment = payments.find(p => p.id === id)
+    setRefundTarget({ id: payment.id, storeName: payment.storeName, storeEmail: payment.storeEmail, plan: payment.plan, amount: payment.amount, method: payment.method })
+    setRefundReason('')
+  }
+
+  async function confirmRefund() {
+    setBusyId(refundTarget.id)
+    try {
+      await api('/api/admin/refund-payment', { method: 'POST', token, body: { paymentId: refundTarget.id, reason: refundReason } })
+      toast('Payment refunded — plan deactivated', 'success')
+      setRefundTarget(null)
+      await load()
+    } catch (err) { toast(err.message, 'error') }
+    finally { setBusyId(null) }
+  }
+
   function statusBadge(s) {
-    return { pending: 'amber', approved: 'green', rejected: 'red' }[s] || 'gray'
+    return { pending: 'amber', approved: 'green', rejected: 'red', refunded: 'purple' }[s] || 'gray'
   }
 
   const pendingCount = counts['pending'] ?? 0
@@ -103,8 +123,8 @@ export default function AdminPayments() {
         <div>
           <h2 className="ad-page-title">Payments</h2>
           <p className="ad-page-desc">
-            Approve JazzCash / EasyPaisa submissions.
-            Demo card payments auto-approve immediately.
+            Approve or reject JazzCash / EasyPaisa submissions. Card payments activate instantly for the
+            customer — use Refund on an approved payment to undo one and deactivate the plan.
           </p>
         </div>
         {pendingCount > 0 && (
@@ -207,6 +227,14 @@ export default function AdminPayments() {
                           </button>
                         </div>
                       )}
+                      {p.status === 'approved' && (
+                        <div className="sd-row-actions">
+                          <button type="button" className="sd-icon-btn danger" title="Refund — deactivates the plan"
+                            disabled={busyId === p.id} onClick={() => refund(p.id)}>
+                            <Undo2 size={15} />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -248,6 +276,48 @@ export default function AdminPayments() {
                 {busyId === rejectTarget.id ? 'Rejecting…' : 'Confirm rejection'}
               </button>
               <button className="btn btn-ghost" type="button" onClick={() => setRejectTarget(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {refundTarget && (
+        <div className="modal-backdrop" onClick={() => setRefundTarget(null)}>
+          <div className="card-form modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem' }}>Refund payment</h3>
+              <button type="button" onClick={() => setRefundTarget(null)}
+                style={{ border: 0, background: 'transparent', cursor: 'pointer', color: 'var(--muted)', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p className="muted tiny" style={{ marginBottom: '1rem' }}>
+              Store: <strong>{refundTarget.storeName || refundTarget.storeId}</strong> ·{' '}
+              Plan: <strong>{refundTarget.plan}</strong> ·{' '}
+              PKR <strong>{Number(refundTarget.amount).toLocaleString()}</strong> · {refundTarget.method}
+            </p>
+            <div className="ad-notice warning" style={{ marginBottom: '1rem' }}>
+              This deactivates the store's plan immediately (their widget pauses) and emails them that the payment was refunded.
+            </div>
+            <label className="sd-field">
+              <span className="sd-field-label">Reason (optional)</span>
+              <textarea
+                rows={3}
+                value={refundReason}
+                onChange={e => setRefundReason(e.target.value)}
+                placeholder="e.g. Customer requested cancellation, duplicate charge..."
+                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+              />
+            </label>
+            <div className="actions" style={{ marginTop: '1rem' }}>
+              <button className="btn" type="button"
+                style={{ background: '#b91c1c' }}
+                disabled={busyId === refundTarget.id}
+                onClick={confirmRefund}>
+                {busyId === refundTarget.id ? 'Refunding…' : 'Confirm refund'}
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setRefundTarget(null)}>
                 Cancel
               </button>
             </div>

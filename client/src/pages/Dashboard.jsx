@@ -13,7 +13,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { getCatalogMode } from "../lib/catalogMode";
-import { isWidgetInstalled, isWidgetEnabled } from "../lib/widgetStatus";
+import { computeSetupSteps } from "../lib/setupSteps";
 import StoreSetupGate from "../dashboard/StoreSetupGate";
 import Sidebar from "../dashboard/Sidebar";
 import Topbar from "../dashboard/Topbar";
@@ -114,21 +114,7 @@ export default function Dashboard() {
     setTab(id);
   }
 
-  const wooConnected = !!store?.wooConnected;
-  const setupSteps = [
-    { label: "Name your store", done: !store?.needsSetup, goTo: "store" },
-    { label: "Add products to your catalog", done: (productCount ?? 0) > 0, goTo: "products" },
-    {
-      label: wooConnected ? "Connect WooCommerce plugin" : "Install widget on your site",
-      done: isWidgetInstalled(store),
-      goTo: hideEmbed ? "store" : "embed",
-    },
-    {
-      label: "Enable widget for shoppers",
-      done: isWidgetEnabled(store) && isWidgetInstalled(store),
-      goTo: "settings",
-    },
-  ];
+  const setupSteps = computeSetupSteps(store, { productCount, hideEmbed });
   const nextStep = setupSteps.find((s) => !s.done);
   const completedSteps = setupSteps.filter((s) => s.done).length;
 
@@ -139,7 +125,7 @@ export default function Dashboard() {
 
   function renderTab() {
     switch (tab) {
-      case "home":      return <OverviewTab store={store} onGoTab={goTab} />;
+      case "home":      return <OverviewTab store={store} onGoTab={goTab} productCount={productCount} />;
       case "store":     return <StoreSyncTab store={store} mode={mode} onModeChange={setMode} />;
       case "products":  return <ProductsTab store={store} mode={mode} />;
       case "analytics": return <AnalyticsTab store={store} onGoTab={goTab} mode={mode} />;

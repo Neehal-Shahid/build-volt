@@ -9,7 +9,7 @@ import {
 } from '../lib/auth.js'
 import { validateDemoPayment, DEMO_TEST_CARDS, formatCardNumber } from '../lib/demoCards.js'
 import { normalizePaymentMode, modeFlags } from '../lib/paymentMode.js'
-import { planLimit, isPlanLapsed } from '../lib/storePlan.js'
+import { planLimit, isPlanLapsed, computePlanActivation } from '../lib/storePlan.js'
 import { sendEmail, paymentReceiptEmailContent } from '../email.js'
 
 const router = Router()
@@ -78,16 +78,15 @@ function mapPayment(p) {
   }
 }
 
-async function activatePlan(storeId, planId) {
-  const ends = new Date()
-  ends.setDate(ends.getDate() + 30)
+async function activatePlan(store, planId) {
+  const { planEnds, extended } = computePlanActivation(store, planId)
   await getDb().execute({
     sql: `UPDATE stores
           SET plan = ?, plan_ends = ?, updated_at = datetime('now')
           WHERE id = ?`,
-    args: [planId, ends.toISOString(), storeId],
+    args: [planId, planEnds, store.id],
   })
-  return ends.toISOString()
+  return { planEnds, extended }
 }
 
 // Public plans + payment mode
@@ -239,6 +238,17 @@ router.post('/payment/submit', authStore, async (req, res) => {
       })
     }
 
+    const existingPending = await getDb().execute({
+      sql: `SELECT id FROM payments WHERE store_id = ? AND status = 'pending' LIMIT 1`,
+      args: [storeId],
+    })
+    if (existingPending.rows.length) {
+      return res.status(409).json({
+        success: false,
+        error: 'You already have a payment awaiting review. Wait for it to be approved or rejected before submitting another.',
+      })
+    }
+
     const result = await getDb().execute({
       sql: `INSERT INTO payments (store_id, plan, amount, method, transaction_ref, status, notes)
             VALUES (?, ?, ?, ?, ?, 'pending', 'manual')
@@ -320,7 +330,8 @@ router.post('/payment/demo-checkout', authStore, async (req, res) => {
       name: String(req.body.name || '').trim(),
     })
 
-    const planEnds = await activatePlan(storeId, selected.id)
+    const storeBefore = await getStoreById(storeId)
+    const { planEnds, extended } = await activatePlan(storeBefore, selected.id)
 
     const result = await getDb().execute({
       sql: `INSERT INTO payments (store_id, plan, amount, method, transaction_ref, status, notes, reviewed_at)
@@ -364,11 +375,14 @@ router.post('/payment/demo-checkout', authStore, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Payment successful. Your plan is active for 30 days.',
+      message: extended
+        ? `Payment successful. Your ${selected.name} plan has been extended 30 days.`
+        : 'Payment successful. Your plan is active for 30 days.',
       payment: mapPayment(payment),
       store: publicStore(store),
       token,
       planEnds,
+      extended,
       receipt: {
         brand: check.brand,
         last4: check.last4,

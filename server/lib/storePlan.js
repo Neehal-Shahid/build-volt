@@ -90,6 +90,20 @@ export function productLimit(store, config) {
   return Number(config?.[key] || defaults[plan in defaults ? plan : 'trial'])
 }
 
+/**
+ * Where a new payment should push plan_ends to. If the store is renewing the exact
+ * same plan it's already actively on, extend from the existing plan_ends so paying
+ * again never discards time already paid for. Otherwise (switching plans, or the
+ * previous plan already lapsed) the new cycle starts fresh from now.
+ */
+export function computePlanActivation(store, planId, days = 30) {
+  const samePlanStillActive =
+    store?.plan === planId && store?.plan_ends && new Date(store.plan_ends).getTime() > Date.now()
+  const base = samePlanStillActive ? new Date(store.plan_ends) : new Date()
+  base.setDate(base.getDate() + days)
+  return { planEnds: base.toISOString(), extended: !!samePlanStillActive }
+}
+
 export function publicPlanStatus(store) {
   const lapsed = isPlanLapsed(store)
   const reason = widgetPauseReason(store)

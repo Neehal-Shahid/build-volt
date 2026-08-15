@@ -164,18 +164,23 @@ export function passwordResetEmailContent({ appUrl, token, otp }) {
   return { subject, text, html, link }
 }
 
-export function paymentReceiptEmailContent({ storeName, plan, amount, method, planEnds, currency = 'PKR' }) {
+export function paymentReceiptEmailContent({ storeName, plan, amount, method, planEnds, extended = false, currency = 'PKR' }) {
   const dashUrl = (process.env.APP_URL || 'https://build-volt.vercel.app') + '/dashboard'
   const planLabel = String(plan || '').charAt(0).toUpperCase() + String(plan || '').slice(1)
   const amountLabel = `${currency} ${Number(amount || 0).toLocaleString()}`
   const renewalLabel = planEnds
     ? new Date(planEnds).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : null
-  const subject = `Payment receipt — ${planLabel} plan activated`
+  const subject = extended
+    ? `Payment receipt — ${planLabel} plan extended`
+    : `Payment receipt — ${planLabel} plan activated`
+  const introLine = extended
+    ? `We've received your payment and extended your ${planLabel} plan.`
+    : `We've received your payment for the ${planLabel} plan.`
   const text = [
     `Hi ${storeName || 'there'},`,
     '',
-    `We've received your payment for the ${planLabel} plan.`,
+    introLine,
     '',
     `Amount: ${amountLabel}`,
     `Method: ${method}`,
@@ -185,7 +190,7 @@ export function paymentReceiptEmailContent({ storeName, plan, amount, method, pl
   ].filter(Boolean).join('\n')
   const html = emailShell(`
   <h1>Payment received ✓</h1>
-  <p>Hi ${storeName || 'there'}, thanks for upgrading — here's your receipt.</p>
+  <p>Hi ${storeName || 'there'}, thanks ${extended ? 'for renewing' : 'for upgrading'} — here's your receipt.</p>
   <table style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:0.92rem">
     <tr><td style="padding:0.5rem 0;color:#64748B">Plan</td><td style="padding:0.5rem 0;text-align:right;font-weight:700">${planLabel}</td></tr>
     <tr style="border-top:1px solid #E2E8F0"><td style="padding:0.5rem 0;color:#64748B">Amount</td><td style="padding:0.5rem 0;text-align:right;font-weight:700;color:#2A5EE8">${amountLabel}</td></tr>
@@ -218,6 +223,29 @@ export function paymentRejectedEmailContent({ storeName, plan, amount, reason, c
   ${reason ? `<p style="background:#FFFBEB;border-left:3px solid #F59E0B;padding:0.65rem 0.85rem;border-radius:0 6px 6px 0;color:#92400E">${reason}</p>` : ''}
   <p>Double-check the transaction ID and amount, then resubmit from Billing — or reply to this email if you think this is a mistake.</p>
   <a class="btn" href="${dashUrl}/billing">Resubmit payment</a>
+`)
+  return { subject, text, html }
+}
+
+export function paymentRefundedEmailContent({ storeName, plan, amount, reason, currency = 'PKR' }) {
+  const dashUrl = (process.env.APP_URL || 'https://build-volt.vercel.app') + '/dashboard'
+  const planLabel = String(plan || '').charAt(0).toUpperCase() + String(plan || '').slice(1)
+  const amountLabel = `${currency} ${Number(amount || 0).toLocaleString()}`
+  const subject = `Your ${planLabel} plan payment has been refunded`
+  const text = [
+    `Hi ${storeName || 'there'},`,
+    '',
+    `Your ${amountLabel} payment for the ${planLabel} plan has been refunded, and the plan has been deactivated.`,
+    reason ? `Reason: ${reason}` : '',
+    '',
+    'Your widget will pause until you choose a plan again from Billing.',
+  ].filter(Boolean).join('\n')
+  const html = emailShell(`
+  <h1>Payment refunded</h1>
+  <p>Hi ${storeName || 'there'}, your <strong>${amountLabel}</strong> payment for the <strong>${planLabel}</strong> plan has been refunded and the plan is now deactivated.</p>
+  ${reason ? `<p style="background:#F8FAFC;border-left:3px solid #64748B;padding:0.65rem 0.85rem;border-radius:0 6px 6px 0;color:#334155">${reason}</p>` : ''}
+  <p>Your widget will pause until you choose a plan again.</p>
+  <a class="btn" href="${dashUrl}/billing">Go to Billing</a>
 `)
   return { subject, text, html }
 }

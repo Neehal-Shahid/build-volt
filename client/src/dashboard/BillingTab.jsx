@@ -78,8 +78,25 @@ export default function BillingTab({ store }) {
 
   const selected = plans.find((p) => p.id === selectedPlan) || plans[0];
 
+  function confirmRepeatPurchase(planId) {
+    const hasActivePaid = store?.plan && store.plan !== "trial" && !isPlanLapsed(store);
+    if (!hasActivePaid) return true;
+    const endsLabel = store.planEnds
+      ? new Date(store.planEnds).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
+      : "soon";
+    if (store.plan === planId) {
+      return window.confirm(
+        `You already have an active ${store.plan} plan until ${endsLabel}. Paying again will extend it by 30 more days from that date — you won't lose any remaining time. Continue?`,
+      );
+    }
+    return window.confirm(
+      `You're currently on the ${store.plan} plan until ${endsLabel}. Switching to ${planId} starts a new 30-day cycle today. Continue?`,
+    );
+  }
+
   async function submitManual(e) {
     e.preventDefault();
+    if (!confirmRepeatPurchase(selectedPlan)) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -293,7 +310,11 @@ export default function BillingTab({ store }) {
             <button
               type="button"
               className="btn sd-card-pay-btn"
-              onClick={() => { setError(""); setCheckoutOpen(true); }}
+              onClick={() => {
+                if (!confirmRepeatPurchase(selected.id)) return;
+                setError("");
+                setCheckoutOpen(true);
+              }}
             >
               <CreditCard size={16} />
               Pay PKR {Number(selected.price).toLocaleString()}

@@ -7,7 +7,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { getCatalogMode } from "../lib/catalogMode";
-import { getWidgetStatus, isWidgetInstalled, isWidgetEnabled, isPlanLapsed, WIDGET_STATUS_LABELS, widgetStatusTone, widgetPauseHint } from "../lib/widgetStatus";
+import { getWidgetStatus, isPlanLapsed, WIDGET_STATUS_LABELS, widgetStatusTone, widgetPauseHint } from "../lib/widgetStatus";
+import { computeSetupSteps } from "../lib/setupSteps";
 import PageHeader from "./ui/PageHeader";
 import Card from "./ui/Card";
 import StatCard from "./ui/StatCard";
@@ -27,10 +28,9 @@ function relTime(iso) {
   return "just now";
 }
 
-export default function OverviewTab({ store, onGoTab }) {
+export default function OverviewTab({ store, onGoTab, productCount }) {
   const { token } = useAuth();
   const [analytics, setAnalytics] = useState(null);
-  const [productCount, setProductCount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [widgetStatus, setWidgetStatus] = useState(() => getWidgetStatus(store));
 
@@ -52,9 +52,6 @@ export default function OverviewTab({ store, onGoTab }) {
 
   useEffect(() => {
     let cancelled = false;
-    // Fetched independently — analytics failing (or being slow) must never zero out
-    // an already-known product count, and vice versa. Promise.all would reject the
-    // whole batch on either failure, silently resetting the other to its fallback.
     (async () => {
       try {
         const analyticsRes = await api("/api/analytics", { token });
@@ -63,20 +60,6 @@ export default function OverviewTab({ store, onGoTab }) {
         if (!cancelled) setAnalytics({ totalRecommendations: 0, recent: [] });
       } finally {
         if (!cancelled) setLoading(false);
-      }
-    })();
-    (async () => {
-      if (!store?.id) {
-        setProductCount(0);
-        return;
-      }
-      try {
-        const productsRes = await api(`/api/products/manage/${encodeURIComponent(store.id)}`, { token });
-        if (!cancelled) setProductCount((productsRes.products || []).length);
-      } catch {
-        // Leave productCount as-is on failure rather than forcing it to 0 — an
-        // existing correct value (or the initial null/"still loading") is safer
-        // than reporting "no products" when we simply couldn't refetch.
       }
     })();
     return () => { cancelled = true; };
@@ -97,37 +80,10 @@ export default function OverviewTab({ store, onGoTab }) {
     .reduce((sum, d) => sum + (d.count || 0), 0);
 
   const recent = (analytics?.recent || []).slice(0, 5);
-  const hasProducts = (productCount ?? 0) > 0;
   const wooConnected = !!store?.wooConnected;
   const hideEmbed = getCatalogMode() === "woo" || wooConnected;
-  const widgetInstalled = isWidgetInstalled(store);
-  const widgetEnabled = isWidgetEnabled(store);
 
-  // Essential setup steps only — each condition is verified from live data
-  const steps = [
-    {
-      label: "Name your store",
-      done: !store?.needsSetup,
-      goTo: "store",
-    },
-    {
-      label: "Add products to your catalog",
-      done: hasProducts,
-      goTo: "products",
-    },
-    {
-      label: wooConnected
-        ? "Connect WooCommerce plugin"
-        : "Install widget on your site",
-      done: widgetInstalled,
-      goTo: hideEmbed ? "store" : "embed",
-    },
-    {
-      label: "Enable widget for shoppers",
-      done: widgetEnabled && widgetInstalled,
-      goTo: "settings",
-    },
-  ];
+  const steps = computeSetupSteps(store, { productCount, hideEmbed });
 
   const completedCount = steps.filter((s) => s.done).length;
   const allDone = completedCount === steps.length;
