@@ -51,13 +51,17 @@ export async function sendEmail({
     emailTestMode,
   }
 
-  console.log('\n========== EMAIL (dev) ==========')
+  // Only echo the full body (OTP/reset link included) to console when no real
+  // email provider is configured — once Resend is live, logs must not double
+  // as an account-takeover channel for anyone with log/dashboard access.
+  const hasRealProvider = !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL)
+  console.log('\n========== EMAIL ==========')
   console.log(
     `To: ${destination}${emailTestMode && destination !== to ? ` (original: ${to})` : ''}`,
   )
   console.log(`Subject: ${subject}`)
-  if (text) console.log(text)
-  console.log('=================================\n')
+  if (text && !hasRealProvider) console.log(text)
+  console.log('============================\n')
 
   try {
     await getDb().execute({

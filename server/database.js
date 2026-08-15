@@ -240,12 +240,15 @@ async function seedPlatformConfig() {
     product_limit_starter: '200',
     product_limit_growth: '1000',
     product_limit_pro: '5000',
-    anthropic_model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+    anthropic_model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
     max_tokens: process.env.ANTHROPIC_MAX_TOKENS || '4096',
     usd_to_pkr: '280',
     maintenance_mode: '0',
     payment_number: '03XX-XXXXXXX (set by admin)',
-    payment_mode: 'both',
+    // Real-payment-only by default — demo checkout (any Luhn-valid fake card
+    // activates a real paid plan) must be opted into per-deployment via the
+    // admin panel, not shipped on by default.
+    payment_mode: 'jazzcash',
   }
 
   for (const [key, value] of Object.entries(defaults)) {
@@ -262,9 +265,6 @@ async function seedPlatformConfig() {
     args: ['03XX-XXXXXXX (demo — change in admin later)'],
   })
 
-  await db.execute({
-    sql: `INSERT OR IGNORE INTO platform_config (key, value) VALUES ('payment_mode', 'both')`,
-  })
 }
 
 async function seedAdmin() {

@@ -169,13 +169,19 @@ router.get('/admin/api-usage', authAdmin, async (_req, res) => {
   try {
     const db = getDb()
     const config = await getPlatformConfig()
+    // Only source='ai' rows represent a real, billed Anthropic call — heuristic
+    // and cached rows carry zero tokens/cost and would otherwise dilute "calls".
     const agg = await db.execute(
       `SELECT
          COUNT(*) AS calls,
          COALESCE(SUM(input_tokens), 0) AS input_tokens,
          COALESCE(SUM(output_tokens), 0) AS output_tokens,
          COALESCE(SUM(est_cost_usd), 0) AS cost_usd
-       FROM recommendations`
+       FROM recommendations WHERE source = 'ai'`
+    )
+    const bySource = await db.execute(
+      `SELECT source, COUNT(*) AS c FROM recommendations
+       WHERE source IS NOT NULL AND source != '' GROUP BY source ORDER BY c DESC`
     )
     const row = agg.rows[0] || {}
     const costUsd = Number(row.cost_usd || 0)
@@ -195,6 +201,7 @@ router.get('/admin/api-usage', authAdmin, async (_req, res) => {
         costPkr,
         revenuePkr,
         estimatedProfitPkr: revenuePkr - costPkr,
+        bySource: bySource.rows.map((r) => ({ source: r.source, count: Number(r.c) })),
       },
       config: mapConfig(config),
     })

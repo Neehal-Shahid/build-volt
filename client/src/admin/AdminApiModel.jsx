@@ -16,14 +16,14 @@ const KNOWN_MODELS = [
     desc: 'Best for high-volume, simple recommendations.',
   },
   {
-    id: 'claude-sonnet-4-5',
-    name: 'Claude Sonnet 4.5',
+    id: 'claude-sonnet-5',
+    name: 'Claude Sonnet 5',
     tags: [{ label: '⚖ Balanced', cls: 'balanced' }, { label: '★ Recommended', cls: 'recommended' }],
     desc: 'Best quality-to-cost ratio for BuildBot.',
   },
   {
-    id: 'claude-opus-4-5',
-    name: 'Claude Opus 4.5',
+    id: 'claude-opus-5',
+    name: 'Claude Opus 5',
     tags: [{ label: '🧠 Smartest', cls: 'smart' }, { label: '$$ Expensive', cls: 'expensive' }],
     desc: 'Maximum reasoning power. Use sparingly.',
   },
@@ -39,7 +39,7 @@ export default function AdminApiModel() {
   const { token } = useAdminAuth()
   const { toasts, toast } = useToast()
   const [usage, setUsage] = useState(null)
-  const [selectedModel, setSelectedModel] = useState('claude-sonnet-4-5')
+  const [selectedModel, setSelectedModel] = useState('claude-sonnet-5')
   const [customModelId, setCustomModelId] = useState('')
   const [form, setForm] = useState({
     max_tokens: '4096',
@@ -52,7 +52,7 @@ export default function AdminApiModel() {
       const res = await api('/api/admin/api-usage', { token })
       setUsage(res.usage)
       const c = res.config || {}
-      const m = c.anthropic_model || 'claude-sonnet-4-5'
+      const m = c.anthropic_model || 'claude-sonnet-5'
       const isKnown = KNOWN_MODELS.slice(0, -1).some((x) => x.id === m)
       if (isKnown) {
         setSelectedModel(m)
@@ -120,7 +120,7 @@ export default function AdminApiModel() {
         <div className="sd-stat-card">
           <span className="sd-stat-icon blue"><Zap size={20} strokeWidth={1.75} /></span>
           <div className="sd-stat-body">
-            <span className="sd-stat-label">Total API Calls</span>
+            <span className="sd-stat-label">AI API Calls</span>
             <div className="sd-stat-value">{usage?.calls ?? '—'}</div>
           </div>
         </div>
@@ -152,6 +152,38 @@ export default function AdminApiModel() {
           </div>
         </div>
       </div>
+
+      {usage?.bySource?.length > 0 && (
+        <div className="sd-card" style={{ marginBottom: '1.25rem' }}>
+          <div className="sd-card-title"><Bot size={17} /> Recommendation source split</div>
+          <p className="ad-page-desc" style={{ margin: '0 0 0.85rem' }}>
+            How often shoppers get a real AI-generated build vs. the rule-based catalog fallback
+            (used whenever the API key is missing or the call fails).
+          </p>
+          {(() => {
+            const total = usage.bySource.reduce((s, r) => s + r.count, 0)
+            const labels = { ai: 'AI', heuristic: 'Catalog fallback', cached: 'Cached' }
+            return usage.bySource.map((r) => {
+              const pct = total > 0 ? Math.round((r.count / total) * 100) : 0
+              return (
+                <div key={r.source} style={{ marginBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--navy)' }}>{labels[r.source] || r.source}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--muted)' }}>{r.count} &nbsp;<small>({pct}%)</small></span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 999, background: 'var(--gray-light)', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', width: `${pct}%`, borderRadius: 999,
+                      background: r.source === 'ai' ? 'var(--blue)' : r.source === 'cached' ? 'var(--muted)' : '#f59e0b',
+                      transition: 'width 0.4s ease',
+                    }} />
+                  </div>
+                </div>
+              )
+            })
+          })()}
+        </div>
+      )}
 
       <form onSubmit={save}>
         {/* Model selector */}
@@ -201,7 +233,7 @@ export default function AdminApiModel() {
                 type="text"
                 value={customModelId}
                 onChange={(e) => setCustomModelId(e.target.value)}
-                placeholder="e.g. claude-3-5-haiku-20241022"
+                placeholder="e.g. claude-haiku-4-5-20251001"
                 required={selectedModel === '__custom__'}
               />
             </div>
@@ -222,7 +254,11 @@ export default function AdminApiModel() {
           </div>
           <div className="sd-field">
             <label className="sd-field-label">Max Tokens per Request</label>
-            <input type="number" min="256" max="8192" {...field('max_tokens')} />
+            <input type="number" min="256" max="64000" {...field('max_tokens')} />
+            <p className="muted tiny" style={{ margin: '0.35rem 0 0' }}>
+              This is a ceiling, not a target — Anthropic only bills for tokens actually generated.
+              A higher cap just avoids truncated builds on large catalogs.
+            </p>
           </div>
         </div>
 

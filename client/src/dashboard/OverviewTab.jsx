@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { getCatalogMode } from "../lib/catalogMode";
 import { getWidgetStatus, isPlanLapsed, WIDGET_STATUS_LABELS, widgetStatusTone, widgetPauseHint } from "../lib/widgetStatus";
+import { sourceLabel, sourceTone } from "../lib/recommendSource";
 import { computeSetupSteps } from "../lib/setupSteps";
 import PageHeader from "./ui/PageHeader";
 import Card from "./ui/Card";
@@ -273,7 +274,7 @@ export default function OverviewTab({ store, onGoTab, productCount }) {
                     <td>{r.purpose || "—"}</td>
                     <td>{r.budget ? `PKR ${Number(r.budget).toLocaleString()}` : "—"}</td>
                     <td>
-                      <Badge tone={r.canBuild ? "green" : "amber"}>{r.source}</Badge>
+                      <Badge tone={sourceTone(r.source)}>{sourceLabel(r.source)}</Badge>
                     </td>
                   </tr>
                 ))}

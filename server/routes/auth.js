@@ -23,7 +23,11 @@ import {
 
 const router = Router()
 const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
-const emailDevHints = () => process.env.EMAIL_TEST_MODE === 'true'
+// A configured real provider always wins — never echo OTPs/tokens in the API
+// response once Resend is live, even if EMAIL_TEST_MODE was left on by mistake.
+const emailDevHints = () =>
+  process.env.EMAIL_TEST_MODE === 'true' &&
+  !(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL)
 
 function daysFromNow(days) {
   const d = new Date()

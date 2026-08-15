@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, Wallet, Target, History, Calendar, Gauge } from "lucide-react";
+import { BarChart3, TrendingUp, Wallet, Target, History, Calendar, Gauge, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { getWidgetStatus, isPlanLapsed } from "../lib/widgetStatus";
+import { sourceLabel, sourceTone } from "../lib/recommendSource";
 import PageHeader from "./ui/PageHeader";
 import Card from "./ui/Card";
 import StatCard from "./ui/StatCard";
@@ -85,6 +86,9 @@ export default function AnalyticsTab({ store, onGoTab, mode }) {
     .reduce((s, d) => s + (d.count || 0), 0);
 
   const hasData = data.totalRecommendations > 0;
+  const buildSuccessPct = hasData
+    ? Math.round((Number(data.builtCount || 0) / data.totalRecommendations) * 100)
+    : null;
   const usage = data.usage;
   const usagePct = usage?.limit
     ? Math.min(100, Math.round((usage.used / usage.limit) * 100))
@@ -123,6 +127,12 @@ export default function AnalyticsTab({ store, onGoTab, mode }) {
           value={data.avgBudget ? `PKR ${Number(data.avgBudget).toLocaleString()}` : "—"}
         />
         <StatCard icon={Target} tone="amber" label="Purposes tracked" value={(data.byPurpose || []).length} />
+        <StatCard
+          icon={Sparkles}
+          tone={buildSuccessPct === null ? "gray" : buildSuccessPct >= 80 ? "green" : buildSuccessPct >= 50 ? "amber" : "red"}
+          label="Build success rate"
+          value={buildSuccessPct === null ? "—" : `${buildSuccessPct}%`}
+        />
       </div>
 
       {usage && (
@@ -205,6 +215,31 @@ export default function AnalyticsTab({ store, onGoTab, mode }) {
             )}
           </Card>
 
+          {(data.bySource || []).length > 0 && (
+            <Card title="By source" icon={Sparkles}>
+              <div className="bars">
+                {(() => {
+                  const maxSource = Math.max(1, ...data.bySource.map((r) => r.count));
+                  return data.bySource.map((row) => (
+                    <div className="bar-row" key={row.source}>
+                      <span className="bar-label" style={{ minWidth: 100 }}>{sourceLabel(row.source)}</span>
+                      <div className="bar-track">
+                        <div
+                          className="bar-fill"
+                          style={{ width: `${(row.count / maxSource) * 100}%`, background: 'var(--blue)' }}
+                        />
+                      </div>
+                      <span className="bar-count">{row.count}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+              <p className="muted tiny" style={{ margin: '0.75rem 0 0' }}>
+                AI = generated live by the model. Catalog match = the rule-based fallback used when AI is unavailable or fails.
+              </p>
+            </Card>
+          )}
+
           <Card title="Daily activity — last 14 days" icon={BarChart3}>
             {(data.dailyActivity || []).length === 0 ? (
               <EmptyState icon={BarChart3} title="No recent activity yet." />
@@ -283,7 +318,7 @@ export default function AnalyticsTab({ store, onGoTab, mode }) {
                         <td>{r.purpose || "—"}</td>
                         <td>{r.budget ? `PKR ${Number(r.budget).toLocaleString()}` : "—"}</td>
                         <td>
-                          <Badge tone={r.source === "cached" ? "gray" : "blue"}>{r.source}</Badge>
+                          <Badge tone={sourceTone(r.source)}>{sourceLabel(r.source)}</Badge>
                         </td>
                       </tr>
                     ))}

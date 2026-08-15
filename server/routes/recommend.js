@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import Anthropic from '@anthropic-ai/sdk'
 import { getDb, getPlatformConfig } from '../database.js'
 import { getStoreById } from '../lib/auth.js'
 import {
@@ -9,6 +10,73 @@ import {
 } from '../lib/storePlan.js'
 
 const router = Router()
+
+// USD per-token pricing, keyed by model ID prefix (checked longest-prefix-first below).
+// Used only to estimate est_cost_usd for the admin usage/profit dashboard — not billed anywhere.
+const MODEL_PRICING_PER_TOKEN = {
+  'claude-opus-5':    { in: 5 / 1e6,    out: 25 / 1e6 },
+  'claude-opus-4':     { in: 5 / 1e6,    out: 25 / 1e6 },
+  'claude-sonnet-5':  { in: 3 / 1e6,    out: 15 / 1e6 },
+  'claude-sonnet-4':   { in: 3 / 1e6,    out: 15 / 1e6 },
+  'claude-haiku-4-5': { in: 1 / 1e6,    out: 5 / 1e6 },
+  'claude-fable-5':   { in: 10 / 1e6,   out: 50 / 1e6 },
+}
+
+function pricingForModel(modelName) {
+  const key = Object.keys(MODEL_PRICING_PER_TOKEN)
+    .sort((a, b) => b.length - a.length)
+    .find((prefix) => modelName.startsWith(prefix))
+  return key ? MODEL_PRICING_PER_TOKEN[key] : MODEL_PRICING_PER_TOKEN['claude-haiku-4-5']
+}
+
+const BUILD_SCHEMA = {
+  type: 'object',
+  properties: {
+    builds: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          tier: { type: 'string' },
+          tagline: { type: 'string' },
+          buildName: { type: 'string' },
+          totalPrice: { type: 'number' },
+          withinBudget: { type: 'boolean' },
+          budgetRemaining: { type: 'number' },
+          compatible: { type: 'boolean' },
+          compatibilityNote: { type: 'string' },
+          parts: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                category: { type: 'string' },
+                name: { type: 'string' },
+                price: { type: 'number' },
+                quantity: { type: 'number' },
+                totalPrice: { type: 'number' },
+                reason: { type: 'string' },
+              },
+              required: ['category', 'name', 'price', 'quantity', 'totalPrice', 'reason'],
+              additionalProperties: false,
+            },
+          },
+          missingCategories: { type: 'array', items: { type: 'string' } },
+          summary: { type: 'string' },
+          tips: { type: 'string' },
+          budgetAdvice: { type: 'string' },
+        },
+        required: [
+          'tier', 'tagline', 'buildName', 'totalPrice', 'withinBudget', 'budgetRemaining',
+          'compatible', 'compatibilityNote', 'parts', 'missingCategories', 'summary', 'tips', 'budgetAdvice',
+        ],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['builds'],
+  additionalProperties: false,
+}
 
 // Minimum set of categories required to produce a viable PC build.
 // If the store catalog is missing any of these, we cannot build at all.
@@ -265,13 +333,13 @@ router.post('/recommend', async (req, res) => {
     const storeId = String(req.body.storeId || '').trim()
     const budget = Number(req.body.budget)
     const purpose = String(req.body.purpose || '').trim()
-    const extras = String(req.body.extras || '').trim()
+    const extras = String(req.body.extras || '').trim().slice(0, 300)
     const ip = clientIp(req)
 
     if (!storeId) {
       return res.status(400).json({ success: false, error: 'storeId is required' })
     }
-    if (!Number.isFinite(budget) || budget < 1000) {
+    if (!Number.isFinite(budget) || budget < 1000 || budget > 50_000_000) {
       return res.status(400).json({ success: false, error: 'Enter a valid budget' })
     }
     if (!purpose || !PURPOSES.includes(purpose)) {
@@ -469,23 +537,8 @@ router.post('/recommend', async (req, res) => {
 
         const systemPrompt = [
           'You are BuildBot, an AI PC build recommender for a Pakistani PC parts store.',
-          'Return ONLY valid JSON — no markdown, no explanation outside the JSON.',
-          'Return an array of exactly 3 build objects: Budget Build, Balanced Build, Max Build.',
-          'Each build object must have these exact fields:',
-          '  tier (string — e.g. "Budget Build"),',
-          '  tagline (string — short catchy phrase),',
-          '  buildName (string),',
-          '  totalPrice (number — sum of all included parts),',
-          '  withinBudget (boolean),',
-          '  budgetRemaining (number — budget minus totalPrice, can be negative),',
-          '  compatible (boolean),',
-          '  compatibilityNote (string),',
-          '  parts (array of parts objects),',
-          '  missingCategories (array of category name strings that you could NOT include because they are absent from the catalog),',
-          '  summary (string — 2 sentences: first explains WHY this build suits the stated purpose and budget tier; second notes any trade-offs or missing parts),',
-          '  tips (string),',
-          '  budgetAdvice (string).',
-          'Each part must have: category (string), name (exact product name from catalog), price (number), quantity (number), totalPrice (number), reason (string).',
+          'Produce exactly 3 builds: Budget Build, Balanced Build, Max Build.',
+          'summary: 2 sentences — first explains WHY this build suits the stated purpose and budget tier; second notes any trade-offs or missing parts.',
           'Only use products listed in the catalog. Do NOT invent or guess product names.',
           'If a required category is not in the catalog, add it to missingCategories — do NOT invent a product for it.',
           'Prices are in PKR.',
@@ -501,49 +554,28 @@ router.post('/recommend', async (req, res) => {
         ].filter(Boolean).join('\n')
 
         try {
-          const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: modelName,
-              max_tokens: maxTokens,
-              system: systemPrompt,
-              messages: [{ role: 'user', content: userMsg }],
-            }),
+          const anthropic = new Anthropic({ apiKey })
+          const aiRes = await anthropic.messages.create({
+            model: modelName,
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userMsg }],
+            output_config: { format: { type: 'json_schema', schema: BUILD_SCHEMA } },
           })
 
-          if (!aiRes.ok) {
-            const errBody = await aiRes.text()
-            throw new Error(`Anthropic ${aiRes.status}: ${errBody.slice(0, 200)}`)
-          }
+          const rawText = aiRes.content.find((b) => b.type === 'text')?.text || ''
+          const inputTokens  = aiRes.usage?.input_tokens  || 0
+          const outputTokens = aiRes.usage?.output_tokens || 0
 
-          const aiJson = await aiRes.json()
-          const rawText = aiJson.content?.[0]?.text || ''
-          const inputTokens  = aiJson.usage?.input_tokens  || 0
-          const outputTokens = aiJson.usage?.output_tokens || 0
+          const pricing = pricingForModel(modelName)
+          const estCostUsd = inputTokens * pricing.in + outputTokens * pricing.out
 
-          // Rough cost estimate (haiku pricing in USD)
-          const usdPerMIn  = 0.00025 / 1000
-          const usdPerMOut = 0.00125 / 1000
-          const estCostUsd = inputTokens * usdPerMIn + outputTokens * usdPerMOut
-
-          // Parse JSON — strip optional markdown fence
-          const jsonStr = rawText
-            .replace(/^```(?:json)?\n?/m, '')
-            .replace(/\n?```$/m, '')
-            .trim()
-
-          let parsed
+          let parsed = null
           try {
-            parsed = JSON.parse(jsonStr)
-            if (!Array.isArray(parsed)) throw new Error('Not an array')
+            const obj = JSON.parse(rawText)
+            if (Array.isArray(obj.builds)) parsed = obj.builds
           } catch (parseErr) {
-            console.warn('[recommend] Anthropic parse fail — falling back to heuristic:', parseErr.message)
-            parsed = null
+            console.warn('[recommend] Anthropic response was not valid JSON — falling back to heuristic:', parseErr.message)
           }
 
           if (parsed && parsed.length) {
@@ -573,7 +605,17 @@ router.post('/recommend', async (req, res) => {
             if (!canBuild) noBuildsReason = 'Could not assemble builds from the catalog for this budget.'
           }
         } catch (aiErr) {
-          console.error('[recommend] Anthropic error — falling to heuristic:', aiErr.message)
+          if (aiErr instanceof Anthropic.AuthenticationError) {
+            console.error('[recommend] Anthropic auth error (bad/missing API key) — falling back to heuristic:', aiErr.message)
+          } else if (aiErr instanceof Anthropic.RateLimitError) {
+            console.error('[recommend] Anthropic rate limited — falling back to heuristic:', aiErr.message)
+          } else if (aiErr instanceof Anthropic.APIConnectionError) {
+            console.error('[recommend] Anthropic connection error — falling back to heuristic:', aiErr.message)
+          } else if (aiErr instanceof Anthropic.APIError) {
+            console.error(`[recommend] Anthropic API error (${aiErr.status}) — falling back to heuristic:`, aiErr.message)
+          } else {
+            console.error('[recommend] Unexpected error calling Anthropic — falling back to heuristic:', aiErr.message)
+          }
           source = 'heuristic'
           model = 'catalog-heuristic'
           builds = pickProducts(products, budget, purpose)

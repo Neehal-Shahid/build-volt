@@ -301,7 +301,7 @@ async function main() {
   r = await req('/api/admin/platform-config', {
     method: 'POST',
     token: adminToken,
-    body: { usd_to_pkr: '280', limit_starter: '500', anthropic_model: 'claude-sonnet-4-20250514' },
+    body: { usd_to_pkr: '280', limit_starter: '500', anthropic_model: 'claude-sonnet-5' },
   })
   ok('P10 platform-config save', r.status === 200)
 

@@ -130,7 +130,7 @@ app.get('/', async (_req, res) => {
     })
   } catch (err) {
     console.error('[health]', err)
-    res.status(500).json({ ok: false, error: err.message })
+    res.status(500).json({ ok: false, error: 'Health check failed.' })
   }
 })
 
@@ -150,6 +150,17 @@ const recommendLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+// Covers WooCommerce plugin traffic (ping/sync/product upserts) — generous
+// enough for a bulk catalog edit session, but bounds abuse of a leaked
+// store-id/secret pair or a misbehaving cron.
+const pluginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { success: false, error: 'Too many plugin requests. Try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 app.use('/api/login', authLimiter)
 app.use('/api/signup', authLimiter)
 app.use('/api/forgot-password', authLimiter)
@@ -160,6 +171,7 @@ app.use('/api/admin/login', authLimiter)
 app.use('/api/admin/forgot-password', authLimiter)
 app.use('/api/admin/reset-password', authLimiter)
 app.use('/api/recommend', recommendLimiter)
+app.use('/api/plugin', pluginLimiter)
 
 app.use('/api', authRoutes)
 app.use('/api', storeRoutes)

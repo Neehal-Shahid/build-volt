@@ -141,6 +141,16 @@ router.get('/analytics', authStore, async (req, res) => {
             WHERE store_id = ? AND budget IS NOT NULL`,
       args: [storeId],
     })
+    const builtCount = await db.execute({
+      sql: `SELECT COUNT(*) AS c FROM recommendations WHERE store_id = ? AND can_build = 1`,
+      args: [storeId],
+    })
+    const bySource = await db.execute({
+      sql: `SELECT source, COUNT(*) AS c FROM recommendations
+            WHERE store_id = ? AND source IS NOT NULL AND source != ''
+            GROUP BY source ORDER BY c DESC`,
+      args: [storeId],
+    })
     const daily = await db.execute({
       sql: `SELECT date(created_at) AS day, COUNT(*) AS c
             FROM recommendations
@@ -165,6 +175,11 @@ router.get('/analytics', authStore, async (req, res) => {
         count: Number(r.c),
       })),
       avgBudget: Math.round(Number(avgBudget.rows[0]?.avg_budget || 0)),
+      builtCount: Number(builtCount.rows[0]?.c || 0),
+      bySource: bySource.rows.map((r) => ({
+        source: r.source,
+        count: Number(r.c),
+      })),
       dailyActivity: daily.rows.map((r) => ({
         day: r.day,
         count: Number(r.c),

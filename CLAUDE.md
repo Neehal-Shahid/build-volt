@@ -63,12 +63,15 @@ Turso cloud DB (see `server/.env.example`).
   `/api/widget-ping/*`) are called from arbitrary shop domains and go through open CORS; everything else
   is restricted to `APP_URL`/`EXTRA_ORIGINS`. The `smartCors` middleware picks one or the other per
   request — don't merge them.
-- `routes/recommend.js` — the core recommendation engine is **rule-based, not an LLM call**: it buckets
-  a store's in-stock products by category and picks cheapest/median/most-expensive per category to build
-  Budget/Balanced/Max tiers within the customer's budget (`pickProducts`). Requests are cached per
-  `(storeId, budget, purpose, extras)` for 24h and metered against the store's plan limit
-  (`planLimit`/`countUsage`). Anthropic env vars exist in `.env.example` but are marked "later phases —
-  not needed yet"; there is no live AI integration currently wired up.
+- `routes/recommend.js` — recommendations are AI-generated via the official `@anthropic-ai/sdk`
+  (`output_config.format` structured outputs, guaranteeing valid JSON matching `BUILD_SCHEMA`) when
+  `ANTHROPIC_API_KEY` is set, with a **rule-based heuristic fallback** (`pickProducts`, buckets a store's
+  in-stock products by category and picks cheapest/median/most-expensive per category) used whenever no
+  key is configured or the Anthropic call fails for any reason — so the widget always returns a build.
+  Model/max_tokens are admin-configurable (`platform_config.anthropic_model`/`max_tokens`, edited via
+  `AdminApiModel.jsx`); per-model USD pricing for the cost/profit dashboard lives in
+  `MODEL_PRICING_PER_TOKEN`. Requests are cached per `(storeId, budget, purpose, extras)` for 24h and
+  metered against the store's plan limit (`planLimit`/`countUsage`).
 - `cron.js` / `email.js` — drip/reminder emails (trial ending, plan expiring) gated by
   `trial_emails_sent` dedup table; only runs when `CRON_ENABLED=true`.
 - `scripts/build-plugin.js` — hand-rolled ZIP writer (no archiver dependency) that patches and packages

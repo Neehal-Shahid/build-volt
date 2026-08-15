@@ -157,17 +157,14 @@ router.post('/plugin/sync', authPlugin, async (req, res) => {
     }
 
     const db = getDb()
-    // Full replace of Woo-managed catalog for this store
-    await db.execute({
-      sql: `DELETE FROM products WHERE store_id = ?`,
-      args: [store.id],
-    })
 
-    let imported = 0
-    for (const raw of products) {
-      const p = normalizeProductInput(raw)
-      if (!p.name || p.name.length < 1) continue
-      await db.execute({
+    // Full replace of Woo-managed catalog for this store, atomically — a plain
+    // delete-then-loop-insert would leave the catalog half-wiped if any insert
+    // failed partway through a 5000-row sync.
+    const inserts = products
+      .map((raw) => normalizeProductInput(raw))
+      .filter((p) => p.name && p.name.length > 0)
+      .map((p) => ({
         sql: `INSERT INTO products
               (store_id, name, category, price, stock, description, sku, woo_product_id, updated_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
@@ -181,9 +178,13 @@ router.post('/plugin/sync', authPlugin, async (req, res) => {
           p.sku.slice(0, 80),
           p.wooId || null,
         ],
-      })
-      imported += 1
-    }
+      }))
+
+    await db.batch(
+      [{ sql: `DELETE FROM products WHERE store_id = ?`, args: [store.id] }, ...inserts],
+      'write',
+    )
+    const imported = inserts.length
 
     await markWooConnected(store.id)
 

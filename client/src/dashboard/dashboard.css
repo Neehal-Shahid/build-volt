@@ -495,6 +495,16 @@
     color: #7c3aed;
 }
 
+.sd-stat-icon.red {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.sd-stat-icon.gray {
+    background: var(--gray-light);
+    color: var(--muted);
+}
+
 .sd-stat-body {
     min-width: 0;
 }

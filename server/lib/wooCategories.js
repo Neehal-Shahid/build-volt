@@ -18,7 +18,10 @@ export const BUILDBOT_CATEGORIES = [
 ]
 
 const RULES = [
-  { cat: 'CPU', keys: ['cpu', 'processor', 'ryzen', 'core i', 'intel core', 'amd'] },
+  // 'amd' is deliberately excluded — AMD also brands GPUs (Radeon) and
+  // motherboard chipsets, so a bare "amd" match here would steal those
+  // products into the CPU bucket since CPU is checked first.
+  { cat: 'CPU', keys: ['cpu', 'processor', 'ryzen'] },
   { cat: 'GPU', keys: ['gpu', 'graphics', 'geforce', 'radeon', 'rtx', 'gtx', 'vga'] },
   { cat: 'RAM', keys: ['ram', 'memory', 'ddr4', 'ddr5', 'sodimm'] },
   { cat: 'Motherboard', keys: ['motherboard', 'mainboard', 'mobo', 'b550', 'b650', 'z790', 'x670'] },
