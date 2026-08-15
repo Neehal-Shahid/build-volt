@@ -182,9 +182,9 @@ export default function AdminSettings() {
   }
 
   const PAYMENT_MODES = [
-    { value: 'demo',      label: 'Demo card only',           desc: 'Instant checkout activation — good for FYP demos' },
-    { value: 'jazzcash',  label: 'JazzCash / EasyPaisa only', desc: 'Manual TID submission → admin approve' },
-    { value: 'both',      label: 'Both methods',              desc: 'Recommended — lets users choose' },
+    { value: 'demo',      label: 'Card checkout only',        desc: 'Simulated gateway — no real charges, any well-formed card succeeds instantly. Stores never see "demo" language; this is for your own reference.' },
+    { value: 'jazzcash',  label: 'JazzCash / EasyPaisa only', desc: 'Store submits a transaction ID after paying — you review and approve it manually.' },
+    { value: 'both',      label: 'Both methods',              desc: 'Recommended — lets stores pick whichever is easier for them.' },
   ]
 
   return (

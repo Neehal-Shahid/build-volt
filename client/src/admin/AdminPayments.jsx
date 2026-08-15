@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { CreditCard, CheckCircle, XCircle, Clock, Filter, X } from 'lucide-react'
+import { CreditCard, CheckCircle, XCircle, Clock, Smartphone, X } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAdminAuth } from '../context/AdminAuthContext'
 import { useToast } from './useToast'
@@ -15,12 +15,13 @@ const FILTERS = [
 function methodPill(method) {
   if (!method) return null
   const lower = method.toLowerCase()
-  const isDemo = lower.includes('demo') || lower.includes('card') || lower.includes('test')
+  const isCard = lower.includes('demo') || lower.includes('card') || lower.includes('test')
   const isJazz = lower.includes('jazz') || lower.includes('easy') || lower.includes('paisa')
   return (
-    <span className={`sd-badge ${isDemo ? 'purple' : isJazz ? 'blue' : 'gray'}`}
-      style={{ fontSize: '0.7rem' }}>
-      {isDemo ? '💳 Demo' : isJazz ? '📱 JazzCash' : method}
+    <span className={`sd-badge ${isCard ? 'purple' : isJazz ? 'blue' : 'gray'}`}
+      style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+      {isCard ? <CreditCard size={11} /> : isJazz ? <Smartphone size={11} /> : null}
+      {isCard ? 'Card' : isJazz ? 'JazzCash / EasyPaisa' : method}
     </span>
   )
 }
@@ -134,6 +135,9 @@ export default function AdminPayments() {
         <div className="sd-card-title">
           <CreditCard size={17} />
           {FILTERS.find(f => f.key === filter)?.label} Payments
+          {filter === 'pending' && payments.length > 0 && (
+            <span className="muted tiny" style={{ fontWeight: 500, marginLeft: '0.4rem' }}>· oldest first</span>
+          )}
         </div>
 
         {loading ? (

@@ -25,7 +25,7 @@ function formatExpiry(v) {
   return `${s.slice(0, 2)}/${s.slice(2)}`
 }
 
-export default function DemoCheckout({ plan, demoCards = [], onClose, onPay }) {
+export default function DemoCheckout({ plan, onClose, onPay }) {
   const [number, setNumber]   = useState('')
   const [name, setName]       = useState('')
   const [expiry, setExpiry]   = useState('')
@@ -40,26 +40,12 @@ export default function DemoCheckout({ plan, demoCards = [], onClose, onPay }) {
   const displayNum = formatNumber(number) || '•••• •••• •••• ••••'
   const last4 = digits(number).slice(-4)
 
-  const successCards = useMemo(
-    () => (demoCards || []).filter((c) => c.result === 'success'),
-    [demoCards],
-  )
-
   const brandLabel = useMemo(() => {
     if (brand === 'visa') return 'VISA'
     if (brand === 'mastercard') return 'mastercard'
     if (brand === 'amex') return 'AMEX'
     return 'CARD'
   }, [brand])
-
-  function fillTestCard(cardNumber) {
-    setNumber(digits(cardNumber))
-    setName('Test User')
-    setExpiry('12/30')
-    setCvc(detectBrand(cardNumber) === 'amex' ? '1234' : '123')
-    setError('')
-    setPhase('form')
-  }
 
   function handleClose() {
     if (phase === 'processing') return
@@ -233,28 +219,13 @@ export default function DemoCheckout({ plan, demoCards = [], onClose, onPay }) {
                 </label>
               </div>
 
-              {successCards.length > 0 && (
-                <div className="pay-test-cards">
-                  <strong>Test cards (demo mode)</strong>
-                  {successCards.map((c) => (
-                    <button
-                      key={c.number || c.numberDisplay}
-                      type="button"
-                      onClick={() => fillTestCard(c.number || c.numberDisplay.replace(/\s/g, ''))}
-                    >
-                      <span>{c.numberDisplay}</span>
-                      <span className="muted tiny"> — {c.brand} · {c.hint}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
               <button className="btn pay-submit" type="submit" disabled={busy}>
                 {busy ? 'Processing…' : `Pay PKR ${Number(plan.price).toLocaleString()}`}
               </button>
 
               <p className="muted tiny pay-form-footnote">
-                Demo checkout — no real charges. Plan activates instantly on success.
+                <Lock size={11} style={{ verticalAlign: -1, marginRight: 4 }} />
+                Payments are encrypted end-to-end. Your plan activates the moment payment is confirmed.
               </p>
             </form>
           )}

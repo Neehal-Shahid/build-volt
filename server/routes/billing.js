@@ -205,7 +205,7 @@ router.post('/payment/submit', authStore, async (req, res) => {
     if (!modeFlags(mode).jazzcashEnabled) {
       return res.status(403).json({
         success: false,
-        error: 'JazzCash / EasyPaisa payments are disabled by admin. Use Demo Card checkout.',
+        error: 'JazzCash / EasyPaisa payments are currently unavailable. Please pay by card instead.',
       })
     }
 
@@ -311,9 +311,9 @@ router.post('/payment/demo-checkout', authStore, async (req, res) => {
     }
 
     // Simulated processing delay feel — short server-side pause optional; client animates
-    const ref = `DEMO-${check.last4}-${randomToken(4).slice(0, 8).toUpperCase()}`
+    const ref = `CARD-${check.last4}-${randomToken(4).slice(0, 8).toUpperCase()}`
     const notes = JSON.stringify({
-      channel: 'demo_card',
+      channel: 'card',
       brand: check.brand,
       last4: check.last4,
       name: String(req.body.name || '').trim(),
@@ -323,7 +323,7 @@ router.post('/payment/demo-checkout', authStore, async (req, res) => {
 
     const result = await getDb().execute({
       sql: `INSERT INTO payments (store_id, plan, amount, method, transaction_ref, status, notes, reviewed_at)
-            VALUES (?, ?, ?, 'Demo Card', ?, 'approved', ?, datetime('now'))
+            VALUES (?, ?, ?, 'Card', ?, 'approved', ?, datetime('now'))
             RETURNING *`,
       args: [storeId, selected.id, selected.price, ref, notes],
     })

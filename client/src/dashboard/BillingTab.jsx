@@ -38,7 +38,6 @@ const METHODS = [
 export default function BillingTab({ store }) {
   const { token, persistSession } = useAuth();
   const [plans, setPlans] = useState([]);
-  const [demoCards, setDemoCards] = useState([]);
   const [paymentNumber, setPaymentNumber] = useState("");
   const [history, setHistory] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -62,7 +61,6 @@ export default function BillingTab({ store }) {
         api("/api/payment/history", { token }),
       ]);
       setPlans(plansRes.plans || []);
-      setDemoCards(plansRes.demoCards || []);
       setPaymentNumber(plansRes.paymentNumber || histRes.paymentNumber || "");
       setHistory(histRes.payments || []);
       setCurrent(histRes.current || null);
@@ -205,9 +203,10 @@ export default function BillingTab({ store }) {
             <button
               key={p.id}
               type="button"
-              className={`plan-card ${isSelected ? "active" : ""}`}
+              className={`plan-card ${isSelected ? "active" : ""} ${p.id === "growth" ? "popular" : ""}`}
               onClick={() => setSelectedPlan(p.id)}
             >
+              {p.id === "growth" && <span className="plan-card-popular">Most Popular</span>}
               {isSelected && (
                 <span className="plan-card-badge">
                   <CheckCircle size={12} strokeWidth={2.5} /> Selected
@@ -260,14 +259,18 @@ export default function BillingTab({ store }) {
               Pay PKR {Number(selected.price).toLocaleString()}
             </button>
             <p className="muted tiny" style={{ margin: "0.65rem 0 0" }}>
-              Demo checkout — use a test card from the checkout screen. No real charges.
+              <Shield size={11} style={{ verticalAlign: -1, marginRight: 4 }} />
+              Visa, Mastercard, and Amex accepted. Your card details never touch our servers.
             </p>
           </div>
         </Card>
       )}
 
       {jazzcashEnabled && (
-        <Card title="Bank transfer" icon={Landmark}>
+        <Card title="JazzCash / EasyPaisa" icon={Landmark}>
+          <p className="muted tiny" style={{ marginTop: 0, marginBottom: "0.85rem" }}>
+            Send payment from your app, then submit the transaction ID below — we'll activate your plan once it's verified.
+          </p>
           {paymentNumber ? (
             <div className="sd-pay-number-box">
               <div className="sd-pay-number-label">Send payment to</div>
@@ -367,7 +370,6 @@ export default function BillingTab({ store }) {
       {checkoutOpen && selected && (
         <DemoCheckout
           plan={selected}
-          demoCards={demoCards}
           onClose={handleCheckoutClose}
           onPay={payDemo}
         />

@@ -1,4 +1,12 @@
-/** Demo card catalog — for FYP simulation only (not real charges). */
+/**
+ * Simulated card checkout — no real charges, no real gateway. Behaves like a real
+ * payment gateway's test mode: any well-formed card (passes Luhn, future expiry,
+ * correct CVC length) succeeds. A handful of specific numbers below simulate the
+ * usual failure states (decline, insufficient funds, expired, processing error) for
+ * demoing error handling — these are intentionally not surfaced anywhere in the
+ * store-owner UI, same as how real gateways' documented test cards aren't shown
+ * inline during an actual checkout.
+ */
 
 export const DEMO_TEST_CARDS = [
   {
@@ -143,13 +151,11 @@ export function validateDemoPayment({ number, expiry, cvc, name }) {
     }
   }
 
+  // Only the specific trigger numbers below simulate a failure — every other
+  // well-formed card succeeds, same as a real gateway's sandbox mode.
   const card = findDemoCard(s)
   if (!card) {
-    return {
-      ok: false,
-      error:
-        'Use a BuildBot demo test card (see the list on the checkout). Random cards are not accepted in demo mode.',
-    }
+    return { ok: true, card: null, brand, last4: s.slice(-4) }
   }
 
   if (card.result === 'expired') {

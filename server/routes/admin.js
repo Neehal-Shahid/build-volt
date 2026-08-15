@@ -533,6 +533,9 @@ router.get('/admin/payments', authAdmin, async (req, res) => {
         : { sql: `SELECT COUNT(*) AS c FROM payments` }
     )
     const total = Number(countResult.rows[0]?.c || 0)
+    // Pending queue sorts oldest-first (FIFO review, nothing sits unnoticed);
+    // approved/rejected/all sort newest-first (most relevant history view).
+    const order = status === 'pending' ? 'ASC' : 'DESC'
     let result
     if (isFiltered) {
       result = await db.execute({
@@ -540,7 +543,7 @@ router.get('/admin/payments', authAdmin, async (req, res) => {
               FROM payments p
               LEFT JOIN stores s ON s.id = p.store_id
               WHERE p.status = ?
-              ORDER BY p.id DESC LIMIT ? OFFSET ?`,
+              ORDER BY p.id ${order} LIMIT ? OFFSET ?`,
         args: [status, limit, offset],
       })
     } else {
