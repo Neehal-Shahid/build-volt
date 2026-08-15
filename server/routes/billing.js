@@ -10,6 +10,7 @@ import {
 import { validateDemoPayment, DEMO_TEST_CARDS, formatCardNumber } from '../lib/demoCards.js'
 import { normalizePaymentMode, modeFlags } from '../lib/paymentMode.js'
 import { planLimit, isPlanLapsed } from '../lib/storePlan.js'
+import { sendEmail, paymentReceiptEmailContent } from '../email.js'
 
 const router = Router()
 
@@ -339,6 +340,27 @@ router.post('/payment/demo-checkout', authStore, async (req, res) => {
 
     const store = await getStoreById(storeId)
     const token = signStoreToken(store)
+
+    if (store?.email) {
+      try {
+        const receiptEmail = paymentReceiptEmailContent({
+          storeName: store.name,
+          plan: selected.id,
+          amount: selected.price,
+          method: `${check.brand} •••• ${check.last4}`,
+          planEnds,
+        })
+        await sendEmail({
+          to: store.email,
+          subject: receiptEmail.subject,
+          text: receiptEmail.text,
+          html: receiptEmail.html,
+          template: 'payment_receipt',
+        })
+      } catch (emailErr) {
+        console.warn('[demo-checkout] receipt email failed:', emailErr.message)
+      }
+    }
 
     res.json({
       success: true,

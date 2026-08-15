@@ -16,7 +16,7 @@ import {
   validatePassword,
 } from '../lib/auth.js'
 import { normalizePaymentMode } from '../lib/paymentMode.js'
-import { sendEmail, adminPasswordResetEmailContent } from '../email.js'
+import { sendEmail, adminPasswordResetEmailContent, paymentReceiptEmailContent, paymentRejectedEmailContent } from '../email.js'
 import { logAdminAction } from '../lib/adminAudit.js'
 
 const appUrl = () => process.env.APP_URL || 'http://localhost:5173'
@@ -603,11 +603,18 @@ router.post('/admin/approve-payment', authAdmin, async (req, res) => {
 
     const store = await getStoreById(payment.store_id)
     if (store?.email) {
+      const receiptEmail = paymentReceiptEmailContent({
+        storeName: store.name,
+        plan: payment.plan,
+        amount: payment.amount,
+        method: payment.method || 'JazzCash / EasyPaisa',
+        planEnds,
+      })
       await sendEmail({
         to: store.email,
-        subject: 'BuildBot payment approved',
-        text: `Your ${payment.plan} plan is active until ${planEnds}.`,
-        html: `<p>Your <strong>${payment.plan}</strong> plan is active for 30 days.</p>`,
+        subject: receiptEmail.subject,
+        text: receiptEmail.text,
+        html: receiptEmail.html,
         template: 'payment_approved',
       })
     }
@@ -652,11 +659,17 @@ router.post('/admin/reject-payment', authAdmin, async (req, res) => {
 
     const store = await getStoreById(payment.store_id)
     if (store?.email) {
+      const rejectedEmail = paymentRejectedEmailContent({
+        storeName: store.name,
+        plan: payment.plan,
+        amount: payment.amount,
+        reason,
+      })
       await sendEmail({
         to: store.email,
-        subject: 'BuildBot payment rejected',
-        text: `Your payment was rejected.${reason ? ` Reason: ${reason}` : ''}`,
-        html: `<p>Your payment was rejected.</p>${reason ? `<p>${reason}</p>` : ''}`,
+        subject: rejectedEmail.subject,
+        text: rejectedEmail.text,
+        html: rejectedEmail.html,
         template: 'payment_rejected',
       })
     }

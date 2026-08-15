@@ -1,5 +1,5 @@
 import { getDb } from './database.js'
-import { sendEmail, emailShell } from './email.js'
+import { sendEmail, emailShell, planRenewalReminderEmailContent } from './email.js'
 
 async function alreadySent(storeId, emailType) {
   const r = await getDb().execute({
@@ -131,6 +131,20 @@ export async function runDripOnce() {
           'It has been 10 days since you joined BuildBot. Reply via Help if you need a hand with embed or WooCommerce.',
           emailShell(`<h1>Need help going live?</h1><p>It's been 10 days since you joined BuildBot. If you're stuck on the embed or WooCommerce connection, open the Help tab in your dashboard — we reply within 24 hours.</p><a class="btn" href="${(process.env.APP_URL||'https://build-volt.vercel.app')+'/dashboard'}">Open Help</a>`)
         )
+      }
+
+      // Plan renewing soon — 3 days / 1 day before it lapses (parity with trial reminders)
+      if (store.plan !== 'trial' && store.plan_ends) {
+        const daysUntilEnd = dayDiffFromNow(store.plan_ends)
+        if (daysUntilEnd === 3 || daysUntilEnd === 1) {
+          const renewal = planRenewalReminderEmailContent({
+            storeName: store.name,
+            plan: store.plan,
+            planEnds: store.plan_ends,
+            daysLeft: daysUntilEnd,
+          })
+          await sendDrip(store, `plan_renewal_${daysUntilEnd}d`, renewal.subject, renewal.text, renewal.html)
+        }
       }
 
       // Plan lapsed 1 / 3 / 7 days

@@ -156,6 +156,7 @@ export default function DemoCheckout({ plan, onClose, onPay }) {
               </p>
               <p className="muted tiny">
                 Your <strong>{receipt?.plan || plan.name}</strong> plan is now active for 30 days.
+                A receipt has been emailed to you.
               </p>
               <button type="button" className="btn pay-success-btn" onClick={handleClose}>
                 Continue to billing

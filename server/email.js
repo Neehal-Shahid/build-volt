@@ -164,6 +164,80 @@ export function passwordResetEmailContent({ appUrl, token, otp }) {
   return { subject, text, html, link }
 }
 
+export function paymentReceiptEmailContent({ storeName, plan, amount, method, planEnds, currency = 'PKR' }) {
+  const dashUrl = (process.env.APP_URL || 'https://build-volt.vercel.app') + '/dashboard'
+  const planLabel = String(plan || '').charAt(0).toUpperCase() + String(plan || '').slice(1)
+  const amountLabel = `${currency} ${Number(amount || 0).toLocaleString()}`
+  const renewalLabel = planEnds
+    ? new Date(planEnds).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : null
+  const subject = `Payment receipt — ${planLabel} plan activated`
+  const text = [
+    `Hi ${storeName || 'there'},`,
+    '',
+    `We've received your payment for the ${planLabel} plan.`,
+    '',
+    `Amount: ${amountLabel}`,
+    `Method: ${method}`,
+    renewalLabel ? `Active until: ${renewalLabel}` : '',
+    '',
+    'Your widget is live with the new plan limits — nothing else to do.',
+  ].filter(Boolean).join('\n')
+  const html = emailShell(`
+  <h1>Payment received ✓</h1>
+  <p>Hi ${storeName || 'there'}, thanks for upgrading — here's your receipt.</p>
+  <table style="width:100%;border-collapse:collapse;margin:1rem 0;font-size:0.92rem">
+    <tr><td style="padding:0.5rem 0;color:#64748B">Plan</td><td style="padding:0.5rem 0;text-align:right;font-weight:700">${planLabel}</td></tr>
+    <tr style="border-top:1px solid #E2E8F0"><td style="padding:0.5rem 0;color:#64748B">Amount</td><td style="padding:0.5rem 0;text-align:right;font-weight:700;color:#2A5EE8">${amountLabel}</td></tr>
+    <tr style="border-top:1px solid #E2E8F0"><td style="padding:0.5rem 0;color:#64748B">Payment method</td><td style="padding:0.5rem 0;text-align:right">${method}</td></tr>
+    ${renewalLabel ? `<tr style="border-top:1px solid #E2E8F0"><td style="padding:0.5rem 0;color:#64748B">Active until</td><td style="padding:0.5rem 0;text-align:right">${renewalLabel}</td></tr>` : ''}
+  </table>
+  <p>Your widget is already live with the new plan's limits — there's nothing else you need to do.</p>
+  <a class="btn" href="${dashUrl}/billing">View billing</a>
+  <p class="note">Keep this email as your receipt for this payment.</p>
+`)
+  return { subject, text, html }
+}
+
+export function paymentRejectedEmailContent({ storeName, plan, amount, reason, currency = 'PKR' }) {
+  const dashUrl = (process.env.APP_URL || 'https://build-volt.vercel.app') + '/dashboard'
+  const planLabel = String(plan || '').charAt(0).toUpperCase() + String(plan || '').slice(1)
+  const amountLabel = `${currency} ${Number(amount || 0).toLocaleString()}`
+  const subject = `Payment could not be verified — ${planLabel} plan`
+  const text = [
+    `Hi ${storeName || 'there'},`,
+    '',
+    `We couldn't verify your ${amountLabel} payment for the ${planLabel} plan.`,
+    reason ? `Reason: ${reason}` : '',
+    '',
+    'Please double-check the transaction ID and amount, then resubmit from Billing — or reach out if you think this is a mistake.',
+  ].filter(Boolean).join('\n')
+  const html = emailShell(`
+  <h1>We couldn't verify your payment</h1>
+  <p>Hi ${storeName || 'there'}, we reviewed your <strong>${amountLabel}</strong> submission for the <strong>${planLabel}</strong> plan but couldn't verify it.</p>
+  ${reason ? `<p style="background:#FFFBEB;border-left:3px solid #F59E0B;padding:0.65rem 0.85rem;border-radius:0 6px 6px 0;color:#92400E">${reason}</p>` : ''}
+  <p>Double-check the transaction ID and amount, then resubmit from Billing — or reply to this email if you think this is a mistake.</p>
+  <a class="btn" href="${dashUrl}/billing">Resubmit payment</a>
+`)
+  return { subject, text, html }
+}
+
+export function planRenewalReminderEmailContent({ storeName, plan, planEnds, daysLeft }) {
+  const dashUrl = (process.env.APP_URL || 'https://build-volt.vercel.app') + '/dashboard'
+  const planLabel = String(plan || '').charAt(0).toUpperCase() + String(plan || '').slice(1)
+  const subject = daysLeft === 1
+    ? `Your ${planLabel} plan renews tomorrow`
+    : `Your ${planLabel} plan renews in ${daysLeft} days`
+  const text = `Hi ${storeName || 'there'}, your BuildBot ${planLabel} plan ends on ${planEnds}. Renew from Billing to avoid any interruption to your widget.`
+  const html = emailShell(`
+  <h1>${daysLeft === 1 ? 'Your plan renews tomorrow' : `Your plan renews in ${daysLeft} days`}</h1>
+  <p>Hi ${storeName || 'there'}, your <strong>${planLabel}</strong> plan is set to end on <strong>${new Date(planEnds).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</strong>.</p>
+  <p>Renew now so your widget and recommendation limits continue without any gap.</p>
+  <a class="btn" href="${dashUrl}/billing">Renew plan</a>
+`)
+  return { subject, text, html }
+}
+
 export function adminPasswordResetEmailContent({ appUrl, token, otp }) {
   const link = `${appUrl}/admin?resetToken=${encodeURIComponent(token)}`
   const subject = 'Reset your BuildBot admin password'
