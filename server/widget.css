@@ -28,6 +28,21 @@
   --bb-brand-glow-soft: rgba(42, 94, 232, 0.15);
 }
 
+/* ── Keyboard focus (buttons/chips/cards use custom shapes — browser default
+   outlines look chunky on pills/rounded cards, so give them a matching ring) ── */
+
+#bb-launcher:focus-visible,
+.bb-btn:focus-visible,
+.bb-chip:focus-visible,
+.bb-rc:focus-visible,
+.bb-card:focus-visible,
+.bb-close:focus-visible,
+.bb-rc-detail:focus-visible,
+.bb-rc-pdf:focus-visible {
+  outline: 2px solid var(--bb-brand);
+  outline-offset: 2px;
+}
+
 /* ── Launcher button ──────────────────────────────────────────────────────── */
 
 #bb-launcher {
@@ -697,7 +712,7 @@
   border: 1.5px solid var(--bb-border);
   border-radius: 14px;
   padding: 0.8rem 0.9rem;
-  background: #fff;
+  background: linear-gradient(180deg, var(--bb-brand-soft) 0%, #fff 42px), #fff;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
   display: flex;
@@ -966,6 +981,14 @@
 }
 
 .bb-modal-parts thead th:last-child { text-align: right; }
+
+.bb-modal-parts tbody tr {
+  transition: background 0.12s ease;
+}
+
+.bb-modal-parts tbody tr:hover {
+  background: var(--bb-brand-soft);
+}
 
 .bb-pt-cat {
   color: var(--bb-muted);
