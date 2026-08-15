@@ -126,6 +126,181 @@
       .replace(/"/g, '&quot;')
   }
 
+  // ── Tiny hand-rolled PDF writer (no library) ────────────────────────────────
+  // Same philosophy as the server's hand-rolled ZIP writer for the WooCommerce
+  // plugin — a real PDF file, built by hand, with no external dependency added
+  // to a widget script that runs on arbitrary third-party storefronts.
+
+  // Standard Helvetica AFM advance widths (per 1000 em units) — used only to
+  // right-align price text and word-wrap the summary; no font is embedded,
+  // Helvetica is one of the 14 standard PDF fonts every reader already has.
+  var HELV_W = {
+    ' ': 278, '!': 278, '"': 355, '#': 556, '$': 556, '%': 889, '&': 667, "'": 191,
+    '(': 333, ')': 333, '*': 389, '+': 584, ',': 278, '-': 333, '.': 278, '/': 278,
+    '0': 556, '1': 556, '2': 556, '3': 556, '4': 556, '5': 556, '6': 556, '7': 556, '8': 556, '9': 556,
+    ':': 278, ';': 278, '<': 584, '=': 584, '>': 584, '?': 556, '@': 1015,
+    A: 667, B: 667, C: 722, D: 722, E: 667, F: 611, G: 778, H: 722, I: 278, J: 500,
+    K: 667, L: 556, M: 833, N: 722, O: 778, P: 667, Q: 778, R: 722, S: 667, T: 611,
+    U: 722, V: 667, W: 944, X: 667, Y: 667, Z: 611,
+    '[': 278, '\\': 278, ']': 278, '^': 469, _: 556, '`': 333,
+    a: 556, b: 556, c: 500, d: 556, e: 556, f: 278, g: 556, h: 556, i: 222, j: 222,
+    k: 500, l: 222, m: 833, n: 556, o: 556, p: 556, q: 556, r: 333, s: 500, t: 278,
+    u: 556, v: 500, w: 722, x: 500, y: 500, z: 500,
+    '{': 334, '|': 260, '}': 334, '~': 584,
+  }
+
+  function pdfTextWidth(str, size) {
+    var w = 0
+    for (var i = 0; i < str.length; i++) w += (HELV_W[str[i]] || 556)
+    return (w * size) / 1000
+  }
+
+  // PDF's standard fonts only cover printable ASCII — strip/normalize anything
+  // else so unusual product names never produce a corrupt content stream.
+  function pdfSanitize(s) {
+    return String(s || '')
+      .replace(/[‘’]/g, "'")
+      .replace(/[“”]/g, '"')
+      .replace(/[–—]/g, '-')
+      .replace(/[^\x20-\x7E]/g, '')
+  }
+
+  function pdfEscape(s) {
+    return pdfSanitize(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+  }
+
+  function pdfWrapText(str, maxWidth, size) {
+    var words = pdfSanitize(str).split(/\s+/).filter(Boolean)
+    var lines = []
+    var cur = ''
+    for (var i = 0; i < words.length; i++) {
+      var test = cur ? cur + ' ' + words[i] : words[i]
+      if (cur && pdfTextWidth(test, size) > maxWidth) {
+        lines.push(cur)
+        cur = words[i]
+      } else {
+        cur = test
+      }
+    }
+    if (cur) lines.push(cur)
+    return lines
+  }
+
+  function pdfPad10(n) {
+    var s = String(n)
+    while (s.length < 10) s = '0' + s
+    return s
+  }
+
+  // ASCII-only string -> bytes. Every string fed into this has already been
+  // through pdfSanitize/pdfEscape, so a 1:1 char->byte mapping is exact.
+  function pdfBytes(str) {
+    var bytes = new Uint8Array(str.length)
+    for (var i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i) & 0xff
+    return bytes
+  }
+
+  // Renders one build into a single-page Letter-size PDF and returns raw bytes.
+  function buildPdfDocument(build, currency, cfg) {
+    var margin = 54, pageW = 612, pageH = 792
+    var contentW = pageW - margin * 2
+    var ops = []
+    var y = pageH - 60
+
+    function line(x, yy, str, font, size) {
+      ops.push('BT /' + font + ' ' + size + ' Tf ' + x.toFixed(2) + ' ' + yy.toFixed(2) + ' Td (' + pdfEscape(str) + ') Tj ET')
+    }
+    function lineRight(xRight, yy, str, font, size) {
+      var clean = pdfSanitize(str)
+      line(xRight - pdfTextWidth(clean, size), yy, clean, font, size)
+    }
+    function band(x, yy, w, h, gray) {
+      ops.push(gray.toFixed(2) + ' g ' + x.toFixed(2) + ' ' + yy.toFixed(2) + ' ' + w.toFixed(2) + ' ' + h.toFixed(2) + ' re f 0 g')
+    }
+    function rule(x1, yy, x2, gray) {
+      ops.push(gray.toFixed(2) + ' G ' + x1.toFixed(2) + ' ' + yy.toFixed(2) + ' m ' + x2.toFixed(2) + ' ' + yy.toFixed(2) + ' l S 0 G')
+    }
+
+    line(margin, y, build.tier || 'Build', 'F2', 20)
+    y -= 24
+    var sub = money(state.budget, currency) + ' budget   |   ' + (state.purpose || '') + '   |   ' + (cfg.widgetTitle || 'BuildBot')
+    line(margin, y, sub, 'F1', 10)
+    y -= 26
+
+    if (build.summary) {
+      line(margin, y, 'WHY THIS BUILD?', 'F2', 8)
+      y -= 14
+      var wrapped = pdfWrapText(build.summary, contentW, 10)
+      for (var w = 0; w < wrapped.length; w++) { line(margin, y, wrapped[w], 'F1', 10); y -= 14 }
+      y -= 10
+    }
+
+    band(margin, y - 4, contentW, 20, 0.93)
+    line(margin + 6, y, 'CATEGORY', 'F2', 8)
+    line(margin + 140, y, 'COMPONENT', 'F2', 8)
+    lineRight(margin + contentW - 6, y, 'PRICE', 'F2', 8)
+    y -= 24
+
+    var parts = build.parts || []
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i]
+      line(margin + 6, y, p.category || '', 'F1', 10)
+      line(margin + 140, y, p.name || '', 'F1', 10)
+      lineRight(margin + contentW - 6, y, money(p.price, currency), 'F1', 10)
+      y -= 16
+      rule(margin, y + 5, margin + contentW, 0.9)
+      y -= 4
+    }
+
+    y -= 6
+    band(margin, y - 6, contentW, 22, 0.93)
+    line(margin + 6, y, 'TOTAL', 'F2', 11)
+    lineRight(margin + contentW - 6, y, money(build.totalPrice, currency), 'F2', 11)
+    y -= 32
+
+    var missing = build.missingCategories || []
+    if (missing.length) {
+      line(margin, y, 'Not included (not in catalog): ' + missing.join(', '), 'F1', 9)
+      y -= 16
+    }
+    if (build.withinBudget === false) {
+      line(margin, y, 'This build exceeds your budget.', 'F1', 9)
+      y -= 16
+    }
+
+    line(margin, 40, 'Generated by BuildBot', 'F1', 8)
+
+    var content = ops.join('\n')
+    var objs = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pageW + ' ' + pageH + '] ' +
+        '/Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
+      { stream: content },
+    ]
+
+    var out = '%PDF-1.4\n'
+    var offsets = [0]
+    for (var n = 0; n < objs.length; n++) {
+      offsets.push(out.length)
+      var obj = objs[n]
+      if (obj && obj.stream !== undefined) {
+        out += (n + 1) + ' 0 obj\n<< /Length ' + obj.stream.length + ' >>\nstream\n' + obj.stream + '\nendstream\nendobj\n'
+      } else {
+        out += (n + 1) + ' 0 obj\n' + obj + '\nendobj\n'
+      }
+    }
+
+    var xrefStart = out.length
+    out += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n'
+    for (var j = 1; j <= objs.length; j++) out += pdfPad10(offsets[j]) + ' 00000 n \n'
+    out += 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xrefStart + '\n%%EOF'
+
+    return pdfBytes(out)
+  }
+
   // ── Config + ping ─────────────────────────────────────────────────────────────
 
   function fetchConfig() {
@@ -554,66 +729,16 @@
   }
 
   // ── Per-build PDF download ─────────────────────────────────────────────────
-  // Opens one build's HTML in a new tab and auto-triggers the print/save dialog.
-  // Each build card and the modal have their own button that calls this.
+  // Generates a real PDF (see buildPdfDocument above) and downloads it directly
+  // — no new tab, no print dialog. Each build card and the modal call this.
 
   function downloadBuildPdf(build, currency, cfg) {
-    var store = escapeHtml(cfg.widgetTitle || 'BuildBot')
-    var tier = escapeHtml(build.tier || 'Build')
-    var partsRows = (build.parts || []).map(function (p) {
-      return '<tr>' +
-        '<td class="cat">' + escapeHtml(p.category) + '</td>' +
-        '<td class="nm">'  + escapeHtml(p.name)     + '</td>' +
-        '<td class="pr">'  + money(p.price, currency) + '</td>' +
-      '</tr>'
-    }).join('')
-    var warnIco = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
-    var missing = (build.missingCategories || [])
-    var missingNote = missing.length
-      ? '<p class="warn">' + warnIco + ' Not included (not in catalog): ' +
-          missing.map(function (c) { return escapeHtml(c) }).join(', ') + '</p>'
-      : ''
-    var overNote = build.withinBudget === false
-      ? '<p class="warn">' + warnIco + ' This build exceeds your budget.</p>'
-      : ''
-
-    var html = [
-      '<!DOCTYPE html><html><head><meta charset="utf-8">',
-      '<title>' + tier + ' — ' + store + '</title>',
-      '<style>',
-      'body{font-family:system-ui,sans-serif;padding:2rem;color:#0a1a2d;max-width:640px;margin:0 auto}',
-      'h1{font-size:1.45rem;margin:0 0 .15rem}',
-      '.sub{color:#64748b;font-size:.88rem;margin:0 0 1.25rem}',
-      '.why{border-left:3px solid #2a5ee8;padding:.6rem 1rem;background:#f8fafc;margin:0 0 1.1rem;font-size:.9rem;line-height:1.55;color:#334155}',
-      '.why b{display:block;margin-bottom:.2rem;color:#0a1a2d;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}',
-      'table{width:100%;border-collapse:collapse;font-size:.88rem;margin-top:.5rem}',
-      'th{text-align:left;padding:.4rem .6rem;border-bottom:2px solid #e2e8f0;font-size:.78rem;text-transform:uppercase;color:#64748b;letter-spacing:.03em}',
-      'td{padding:.4rem .6rem;border-bottom:1px solid #f1f5f9;vertical-align:top}',
-      'td.cat{color:#64748b;font-size:.82rem;width:110px}',
-      'td.pr{text-align:right;color:#2a5ee8;font-weight:600;white-space:nowrap}',
-      '.total{display:flex;justify-content:space-between;align-items:center;margin-top:.75rem;padding:.6rem .6rem;background:#f8fafc;border-radius:6px;font-weight:700}',
-      '.total-p{color:#2a5ee8;font-size:1.05rem}',
-      '.warn{margin:.75rem 0 0;padding:.5rem .85rem;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:4px;font-size:.85rem;color:#92400e}',
-      '.ft{margin-top:2rem;padding-top:.75rem;border-top:1px solid #e2e8f0;font-size:.78rem;color:#94a3b8;text-align:center}',
-      '@media print{body{padding:1rem}}',
-      '</style></head><body>',
-      '<h1>' + tier + '</h1>',
-      '<p class="sub">' + escapeHtml(money(state.budget, currency)) + ' budget &nbsp;·&nbsp; ' + escapeHtml(state.purpose || '') + ' &nbsp;·&nbsp; ' + store + '</p>',
-      build.summary ? '<div class="why"><b>Why this build?</b>' + escapeHtml(build.summary) + '</div>' : '',
-      '<table><thead><tr><th>Category</th><th>Component</th><th style="text-align:right">Price</th></tr></thead>',
-      '<tbody>' + partsRows + '</tbody></table>',
-      '<div class="total"><span>Total</span><span class="total-p">' + money(build.totalPrice, currency) + '</span></div>',
-      missingNote,
-      overNote,
-      '<div class="ft">Generated by BuildBot</div>',
-      '<script>window.onload=function(){window.print()}<\/script>',
-      '</body></html>',
-    ].join('\n')
-
-    var blob = new Blob([html], { type: 'text/html' })
+    var bytes = buildPdfDocument(build, currency, cfg)
+    var blob = new Blob([bytes], { type: 'application/pdf' })
     var url = URL.createObjectURL(blob)
+    var filename = pdfSanitize(build.tier || 'Build').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'Build'
     var a = document.createElement('a')
-    a.href = url; a.target = '_blank'; a.rel = 'noopener'
+    a.href = url; a.download = filename + '.pdf'
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     setTimeout(function () { URL.revokeObjectURL(url) }, 30000)
   }

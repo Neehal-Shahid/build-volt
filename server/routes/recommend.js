@@ -396,15 +396,22 @@ router.post('/recommend', async (req, res) => {
     })
     const products = productsResult.rows || []
 
-    // Cache: identical request within 24h
+    // Cache: identical request, still fresh relative to the catalog. A cached
+    // build stays valid indefinitely (up to a 30-day backstop) as long as no
+    // product has been added/edited/removed/restocked since it was generated —
+    // `catalog_touched_at` is updated by every product mutation (manual CRUD,
+    // CSV import, and WooCommerce sync) — so this saves real AI cost for
+    // repeat shoppers picking the same budget/purpose without ever serving a
+    // build made from a catalog that's since changed.
     const key = cacheKey(storeId, budget, purpose, extras)
     const cached = await getDb().execute({
       sql: `SELECT builds_json, can_build, no_builds_reason FROM recommendations
             WHERE store_id = ? AND budget = ? AND purpose = ? AND extras = ?
               AND source != 'cached'
-              AND created_at >= datetime('now', '-1 day')
+              AND created_at >= datetime('now', '-30 days')
+              AND (? IS NULL OR created_at >= ?)
             ORDER BY id DESC LIMIT 1`,
-      args: [storeId, budget, purpose, extras || ''],
+      args: [storeId, budget, purpose, extras || '', store.catalog_touched_at || null, store.catalog_touched_at || null],
     })
 
     if (cached.rows.length) {
@@ -530,8 +537,13 @@ router.post('/recommend', async (req, res) => {
         canBuild = builds.some((b) => b.parts && b.parts.length > 0)
         if (!canBuild) noBuildsReason = 'Could not assemble builds from the catalog for this budget.'
       } else {
-        // Build compact catalog string (no descriptions — reduces tokens)
-        const catalogLines = affordable
+        // Full in-stock catalog (not budget-filtered) — deliberately, so this
+        // block is byte-identical across every budget/purpose request for this
+        // store and can be served from Anthropic's prompt cache. The model is
+        // told explicitly to respect the budget itself instead of relying on
+        // pre-filtering. Only changes when a product is added/edited/removed
+        // (same signal the response cache above keys off).
+        const catalogLines = products
           .map((p) => `[${p.category}] ${p.name} | PKR ${Number(p.price).toLocaleString()}`)
           .join('\n')
 
@@ -540,17 +552,15 @@ router.post('/recommend', async (req, res) => {
           'Produce exactly 3 builds: Budget Build, Balanced Build, Max Build.',
           'summary: 2 sentences — first explains WHY this build suits the stated purpose and budget tier; second notes any trade-offs or missing parts.',
           'Only use products listed in the catalog. Do NOT invent or guess product names.',
+          'The catalog below includes the full in-stock inventory, including items above the budget stated in the user message — pick only a combination whose total price fits within that budget.',
           'If a required category is not in the catalog, add it to missingCategories — do NOT invent a product for it.',
           'Prices are in PKR.',
         ].join('\n')
 
-        const userMsg = [
+        const requestMsg = [
           `Budget: PKR ${budget.toLocaleString()}`,
           `Purpose: ${purpose}`,
           extras ? `Extras requested: ${extras}` : '',
-          '',
-          'Available products catalog:',
-          catalogLines,
         ].filter(Boolean).join('\n')
 
         try {
@@ -559,16 +569,35 @@ router.post('/recommend', async (req, res) => {
             model: modelName,
             max_tokens: maxTokens,
             system: systemPrompt,
-            messages: [{ role: 'user', content: userMsg }],
+            messages: [{
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `Available products catalog:\n${catalogLines}`,
+                  // Shared prefix across every request for this store — cache
+                  // it so repeat shoppers with different budgets/purposes only
+                  // pay full price for the catalog once per hour, not per call.
+                  cache_control: { type: 'ephemeral', ttl: '1h' },
+                },
+                { type: 'text', text: requestMsg },
+              ],
+            }],
             output_config: { format: { type: 'json_schema', schema: BUILD_SCHEMA } },
           })
 
           const rawText = aiRes.content.find((b) => b.type === 'text')?.text || ''
-          const inputTokens  = aiRes.usage?.input_tokens  || 0
-          const outputTokens = aiRes.usage?.output_tokens || 0
+          const inputTokens      = aiRes.usage?.input_tokens || 0
+          const outputTokens     = aiRes.usage?.output_tokens || 0
+          const cacheWriteTokens = aiRes.usage?.cache_creation_input_tokens || 0
+          const cacheReadTokens  = aiRes.usage?.cache_read_input_tokens || 0
 
           const pricing = pricingForModel(modelName)
-          const estCostUsd = inputTokens * pricing.in + outputTokens * pricing.out
+          const estCostUsd =
+            inputTokens * pricing.in +
+            outputTokens * pricing.out +
+            cacheWriteTokens * pricing.in * 2 +   // 1h cache write premium
+            cacheReadTokens * pricing.in * 0.1    // cache read discount
 
           let parsed = null
           try {
@@ -585,10 +614,16 @@ router.post('/recommend', async (req, res) => {
             canBuild = builds.some((b) => b.parts && b.parts.length > 0)
             if (!canBuild) noBuildsReason = 'AI could not assemble builds from the catalog for this budget.'
 
-            // Log tokens/cost into this recommendation row
+            // Log tokens/cost into this recommendation row — input_tokens
+            // rolls up cache writes/reads too, so the total reflects the full
+            // prompt size even though only the uncached portion shows up in
+            // Anthropic's own `usage.input_tokens`.
             await logRecommendation({
               storeId, budget, purpose, extras, builds, canBuild, noBuildsReason,
-              source, model, ip, inputTokens, outputTokens, estCost: estCostUsd,
+              source, model, ip,
+              inputTokens: inputTokens + cacheWriteTokens + cacheReadTokens,
+              outputTokens,
+              estCost: estCostUsd,
             })
 
             return res.json({

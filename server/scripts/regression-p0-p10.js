@@ -65,7 +65,7 @@ async function main() {
   ok('P6 widget-test', r.status === 200)
 
   // P3 signup
-  r = await req('/api/signup', { method: 'POST', body: { email, password, marketingOptIn: true } })
+  r = await req('/api/signup', { method: 'POST', body: { email, password, marketingOptIn: true, tosAccepted: true } })
   ok('P3 signup', r.status === 200 && r.data?.success, r.data?.error || '')
   const otp = r.data?.devHint?.otp
   const verifyToken = r.data?.devHint?.verifyToken
